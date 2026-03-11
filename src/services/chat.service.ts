@@ -6,7 +6,7 @@ export interface Message {
   chatId: string;
   senderId: string;
   text?: string;
-  type: 'text' | 'file' | 'voice';
+  type: 'text' | 'file' | 'voice' | 'video';
   fileUrl?: string; // For files/voice
   createdAt: string;
   status: 'sending' | 'sent' | 'delivered' | 'seen';

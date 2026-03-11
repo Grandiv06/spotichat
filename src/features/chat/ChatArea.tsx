@@ -5,7 +5,6 @@ import { MessageInput } from './MessageInput';
 import { chatService } from '@/services/chat.service';
 import type { Message, Chat } from '@/services/chat.service';
 import { useAuthStore } from '@/store/auth.store';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ChatAreaProps {
   chatId: string;
@@ -45,14 +44,17 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     }
   }, [messages]);
 
-  const handleSend = async (text: string) => {
+  const handleSend = async (text?: string, type: 'text' | 'voice' | 'video' | 'file' = 'text') => {
     if (!user) return;
+    
+    // We only need text for actual text messages
+    if (type === 'text' && (!text || !text.trim())) return;
     
     const newMsgObj = {
       chatId,
       senderId: user.id,
-      text,
-      type: 'text' as const,
+      text: type === 'text' ? text!.trim() : undefined,
+      type,
     };
     
     // Optimistic UI update could go here, but we'll await mock delay for simplicity
@@ -81,13 +83,13 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-accent/5 relative">
+    <div className="flex-1 flex flex-col h-full w-full bg-accent/5 relative min-h-0">
       <ChatHeader participant={chat.participant} />
       
-      <ScrollArea className="flex-1 px-4 py-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar">
         <div className="flex flex-col gap-2 min-h-full justify-end pb-2">
            {/* Simple date badge placeholder */}
-           <div className="flex justify-center my-4">
+           <div className="flex justify-center my-4 sticky top-0 z-10">
              <span className="bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-muted-foreground shadow-sm">
                 Today
              </span>
@@ -98,7 +100,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
            ))}
            <div ref={scrollRef} />
         </div>
-      </ScrollArea>
+      </div>
       
       <MessageInput onSend={handleSend} />
     </div>
