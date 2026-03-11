@@ -1,73 +1,56 @@
-# React + TypeScript + Vite
+# SpotiChat
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SpotiChat is a modern, responsive, Telegram-like messaging frontend built with React, Vite, and Tailwind CSS. It uses `shadcn/ui` components for a premium look and is ready to be connected to a real NestJS + WebSocket backend. Currently, it runs entirely on an interactive mock service layer.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Auth Flow (Mock):** Phone entry and OTP verification via fake API.
+- **Main Chat Interface:**
+  - Sidebar with Chat List, Contact Search, and Profile sections.
+  - Active Chat view with distinct sent/received message bubbles.
+  - Seen/Delivered receipts.
+- **Premium Theming:** Seamless Dark and Light mode powered by CSS variables and `tailwind-animate`.
+- **State Management:** Fully managed by `zustand` (auth, themes, modals, selected chats).
+- **Responsive:** Scales down beautifully to mobile views.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Framework:** React 18 + Vite (TypeScript)
+- **Styling:** Tailwind CSS V4 + shadcn/ui
+- **Icons:** Lucide React
+- **State & Routing:** Zustand, React Router v6
+- **Forms:** react-hook-form + zod
 
-## Expanding the ESLint configuration
+## Quick Start (Development)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
+2. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+3. Open `http://localhost:5173` to see the app.
+   
+*(For mock login, you can pass any 10-digit phone number, and ANY 5-digit code e.g. `12345` to enter.)*
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Docker Deployment (Production)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+The repository includes a multi-stage `Dockerfile` and an `nginx.conf` designed for serving the frontend compactly.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. **Build the image**
+   ```bash
+   docker build -t spotichat .
+   ```
+2. **Run the container**
+   ```bash
+   docker run -d -p 8080:80 --name spotichat-app spotichat
+   ```
+3. Open `http://localhost:8080` to see the production build!
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Future Improvements
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- Connect `services/` layers to real Axios/fetch instances and WebSockets.
+- Complete mobile-specific animations (swipe to close sidebar).
+- Add real file handling via multipart form uploads.
