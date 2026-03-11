@@ -10,11 +10,12 @@ interface MessageInputProps {
   onSend: (text?: string, type?: 'text' | 'voice' | 'video' | 'file', duration?: number) => void;
   replyingToMessage?: any; // Message type from service
   onCancelReply?: () => void;
+  disabled?: boolean;
 }
 
 type RecordingState = 'idle' | 'holding' | 'locked';
 
-export function MessageInput({ onSend, replyingToMessage, onCancelReply }: MessageInputProps) {
+export function MessageInput({ onSend, replyingToMessage, onCancelReply, disabled }: MessageInputProps) {
   const [text, setText] = useState('');
   const [mediaType, setMediaType] = useState<'voice' | 'video'>('voice');
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
@@ -141,7 +142,7 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply }: Messa
     handleMove(e.touches[0].clientY);
   };
   
-  const onTouchEnd = (e: React.TouchEvent) => {
+  const onTouchEnd = () => {
     handleEnd();
   };
 
@@ -186,10 +187,11 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply }: Messa
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Write a message..."
-              className="w-full bg-transparent border-none outline-none resize-none max-h-32 text-[15px] placeholder:text-muted-foreground/70"
+              placeholder={disabled ? "Connecting..." : "Write a message..."}
+              className="w-full bg-transparent border-none outline-none resize-none max-h-32 text-[15px] placeholder:text-muted-foreground/70 disabled:opacity-50"
               rows={1}
               style={{ minHeight: '24px' }}
+              disabled={disabled}
             />
           </div>
         </>
@@ -205,11 +207,11 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply }: Messa
 
       {/* Right Side: Action Button */}
       {text.trim() && recordingState === 'idle' ? (
-        <Button onClick={handleSendText} size="icon" className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in duration-200 flex items-center justify-center p-0">
+        <Button onClick={handleSendText} disabled={disabled} size="icon" className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in duration-200 flex items-center justify-center p-0">
           <Send className="h-5 w-5 relative" style={{ left: '-1px', top: '1px' }} />
         </Button>
       ) : recordingState === 'locked' ? (
-        <Button onClick={handleSendMedia} size="icon" className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in flex items-center justify-center p-0">
+        <Button onClick={handleSendMedia} disabled={disabled} size="icon" className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in flex items-center justify-center p-0">
           <Send className="h-5 w-5 relative" style={{ left: '-1px', top: '1px' }} />
         </Button>
       ) : (
@@ -218,6 +220,7 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply }: Messa
             ref={buttonRef}
             variant="ghost"
             size="icon" 
+            disabled={disabled}
             className={cn(
               "h-11 w-11 flex-shrink-0 rounded-full text-muted-foreground relative group touch-none select-none",
               recordingState === 'holding' ? "bg-primary text-primary-foreground scale-125 hover:bg-primary shadow-lg" : "hover:bg-accent hover:text-foreground"

@@ -107,13 +107,34 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       type,
       duration,
     };
+    const tempId = `m_temp_${Date.now()}`;
+    const optimisticMsg: Message = {
+      ...newMsgObj,
+      id: tempId,
+      createdAt: new Date().toISOString(),
+      status: 'sending'
+    };
     
-    // Optimistic UI update could go here, but we'll await mock delay for simplicity
+    // 1. Optimistic UI update
+    setMessages(prev => [...prev, optimisticMsg]);
+    
     try {
+      // 2. Network Request
       const sentMsg = await chatService.sendMessage(newMsgObj);
-      setMessages(prev => [...prev, sentMsg]);
+      
+      // 3. Replace temp message with confirmed message
+      setMessages(prev => prev.map(m => m.id === tempId ? sentMsg : m));
+      
+      // Since our mock service also updates the status to 'delivered' after 2s internally, 
+      // we can simulate syncing that back to the UI state here for a full demo feel:
+      setTimeout(() => {
+        setMessages(prev => prev.map(m => m.id === sentMsg.id ? { ...m, status: 'delivered' } : m));
+      }, 2500);
+
     } catch (e) {
       console.error(e);
+      // Revert optimistic update on failure (optional for this mock, but good practice)
+      setMessages(prev => prev.filter(m => m.id !== tempId));
     }
   };
 
@@ -147,25 +168,32 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     handleDeleteForMe();
   };
 
-  if (isLoading) {
+  if (!chat && !isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-accent/10">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!chat) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-muted-foreground">Chat not found.</p>
+      <div className="flex-1 flex items-center justify-center bg-accent/5">
+        <p className="text-muted-foreground bg-background/60 px-4 py-2 rounded-full text-sm">Select a chat to start messaging</p>
       </div>
     );
   }
 
   return (
     <div className="flex-1 flex flex-col h-full w-full bg-accent/5 relative min-h-0">
-      <ChatHeader participant={chat.participant} onToggleSearch={() => setIsSearching(true)} />
+      {/* 
+        We render a disabled/skeleton header if loading. 
+        Note: The actual ChatHeader requires a participant, if we don't have it yet we can render a minimal fallback or just the structure.
+      */}
+      {chat ? (
+        <ChatHeader participant={chat.participant} onToggleSearch={() => setIsSearching(true)} />
+      ) : (
+        <div className="h-16 border-b bg-card flex items-center px-4 animate-pulse">
+           <div className="h-10 w-10 bg-muted rounded-full mr-3" />
+           <div className="flex flex-col gap-2">
+             <div className="h-3 w-24 bg-muted rounded" />
+             <div className="h-2 w-16 bg-muted rounded" />
+           </div>
+        </div>
+      )}
+
       <InChatSearch 
         isOpen={isSearching}
         onClose={() => { setIsSearching(false); setSearchQuery(''); }}
@@ -196,37 +224,46 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       )}
       
       <div className={cn("flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar", pinnedMessage ? "pt-16" : "")}>
-        <div className="flex flex-col gap-2 min-h-full justify-end pb-2">
-           {/* Simple date badge placeholder */}
-           <div className="flex justify-center my-4 sticky top-0 z-10">
-             <span className="bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-muted-foreground shadow-sm">
-                Today
-             </span>
-           </div>
-           
-           {messages.map((msg) => (
-             <div key={msg.id} id={`msg-${msg.id}`}>
-               <MessageBubble 
-                 message={msg} 
-                 searchQuery={searchQuery}
-                 isHighlightedMatch={isSearching && matchCount > 0 && matchedMessages[currentMatchIndex]?.id === msg.id}
-                 onReply={() => setReplyingToMessage(msg)}
-                 repliedMessage={msg.replyToId ? messages.find(m => m.id === msg.replyToId) : undefined}
-                 onDeleteToggle={() => setMessageToDelete(msg)}
-                 onForwardToggle={() => setMessageToForward(msg)}
-                 onPinMessage={() => setPinnedMessage(msg)}
-                 onToggleReaction={(emoji) => handleToggleReaction(msg.id, emoji)}
-               />
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center h-full">
+            <div className="bg-background/80 backdrop-blur-sm p-3 rounded-full shadow-sm flex items-center justify-center">
+              <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 min-h-full justify-end pb-2">
+             {/* Simple date badge placeholder */}
+             <div className="flex justify-center my-4 sticky top-0 z-10">
+               <span className="bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-muted-foreground shadow-sm">
+                  Today
+               </span>
              </div>
-           ))}
-           <div ref={scrollRef} />
-        </div>
+             
+             {messages.map((msg) => (
+               <div key={msg.id} id={`msg-${msg.id}`}>
+                 <MessageBubble 
+                   message={msg} 
+                   searchQuery={searchQuery}
+                   isHighlightedMatch={isSearching && matchCount > 0 && matchedMessages[currentMatchIndex]?.id === msg.id}
+                   onReply={() => setReplyingToMessage(msg)}
+                   repliedMessage={msg.replyToId ? messages.find(m => m.id === msg.replyToId) : undefined}
+                   onDeleteToggle={() => setMessageToDelete(msg)}
+                   onForwardToggle={() => setMessageToForward(msg)}
+                   onPinMessage={() => setPinnedMessage(msg)}
+                   onToggleReaction={(emoji) => handleToggleReaction(msg.id, emoji)}
+                 />
+               </div>
+             ))}
+             <div ref={scrollRef} />
+          </div>
+        )}
       </div>
       
       <MessageInput 
         onSend={handleSend} 
         replyingToMessage={replyingToMessage}
         onCancelReply={() => setReplyingToMessage(null)}
+        disabled={isLoading || !chat}
       />
 
       {/* Action Modals */}

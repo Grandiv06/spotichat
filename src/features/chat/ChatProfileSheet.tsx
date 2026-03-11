@@ -58,7 +58,7 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-[400px] p-0 flex flex-col h-full bg-background border-l overflow-hidden">
+      <SheetContent side="right" className="w-full !max-w-full sm:!max-w-[400px] p-0 flex flex-col h-[100dvh] bg-background border-l border-none sm:border-solid overflow-hidden">
         {/* Sticky Header that morphs slightly */}
         {!showSharedMedia && (
           <div 

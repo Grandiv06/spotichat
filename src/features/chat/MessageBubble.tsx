@@ -78,7 +78,7 @@ export function MessageBubble({
   const time = new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   // Calculate reaction summaries
-  const reactionsSummary = message.reactions ? Object.entries(message.reactions).filter(([_, users]) => users.length > 0) : [];
+  const reactionsSummary = message.reactions ? Object.entries(message.reactions).filter(([, users]) => users.length > 0) : [];
 
   return (
     <div className={cn("flex w-full mb-2", isMe ? "justify-end" : "justify-start overflow-hidden")}>
@@ -140,8 +140,8 @@ export function MessageBubble({
           )}>
             <span className="text-[11px] leading-none">{time}</span>
             {isMe && (
-              <span className="ml-0.5">
-                {message.status === 'sending' && <Clock className="h-3 w-3" />}
+              <span className="ml-0.5 mt-0.5">
+                {message.status === 'sending' && <Clock className="h-3.5 w-3.5" />}
                 {message.status === 'sent' && <Check className="h-4 w-4" />}
                 {(message.status === 'delivered' || message.status === 'seen') && (
                   <CheckCheck className={cn("h-4 w-4", message.status === 'seen' && "text-blue-400")} />

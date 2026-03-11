@@ -57,7 +57,7 @@ export const chatService = {
   },
 
   sendMessage: async (messageData: Omit<Message, 'id' | 'createdAt' | 'status'>): Promise<Message> => {
-    await delay(600);
+    await delay(300);
     const newMessage: Message = {
       ...messageData,
       id: `m_${Date.now()}`,
