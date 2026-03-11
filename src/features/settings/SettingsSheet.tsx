@@ -46,7 +46,7 @@ export function SettingsSheet() {
   return (
     <>
       <Sheet open={isOpen} onOpenChange={setOpen}>
-        <SheetContent side="left" className="w-full sm:w-[400px] p-0 flex flex-col h-full bg-background border-r">
+        <SheetContent side="left" className="w-full !max-w-full sm:!max-w-[400px] p-0 flex flex-col h-full bg-background border-r">
           
           {/* Custom Header for Back Navigation */}
           <div className="flex items-center px-2 py-3 border-b bg-card/50">

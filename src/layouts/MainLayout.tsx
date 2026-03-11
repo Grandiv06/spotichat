@@ -1,8 +1,9 @@
 import { Outlet } from 'react-router-dom';
-import { Moon, Sun, Plus, Menu, Search } from 'lucide-react';
+import { Moon, Sun, Plus, Menu, Search, Settings } from 'lucide-react';
 import { useThemeStore } from '@/store/theme.store';
 import { useModalStore } from '@/store/modal.store';
 import { useSettingsStore } from '@/features/settings/store/settings.store';
+import { useChatStore } from '@/store/chat.store';
 import { ChatList } from '@/features/chat/ChatList';
 import { ModalProvider } from '@/features/modals/ModalProvider';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ export function MainLayout() {
   const { theme, setTheme } = useThemeStore();
   const { setAddContactOpen, setSearchOpen } = useModalStore();
   const { setOpen: setSettingsOpen } = useSettingsStore();
+  const { selectedChatId } = useChatStore();
   
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -21,11 +23,11 @@ export function MainLayout() {
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden relative">
       {/* Sidebar - Hidden on small screens if chat is open, but for skeleton, just show standard structure */}
-      <div className="w-full md:w-80 lg:w-96 flex-shrink-0 border-r border-border flex flex-col bg-sidebar text-sidebar-foreground z-20">
+      <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 border-r border-border flex flex-col bg-sidebar text-sidebar-foreground z-20 ${selectedChatId ? 'hidden md:flex' : 'flex'}`}>
         {/* Sidebar Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border gap-2">
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSettingsOpen(true)}>
-            <Menu className="h-5 w-5" />
+            <Settings className="h-5 w-5 text-muted-foreground" />
           </Button>
           <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setSettingsOpen(true)}>
             <Menu className="h-5 w-5" />
@@ -59,7 +61,7 @@ export function MainLayout() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-background relative md:flex hidden z-10">
+      <div className={`flex-1 flex flex-col min-w-0 bg-background relative z-10 ${selectedChatId ? 'flex' : 'hidden md:flex'}`}>
         <Outlet />
       </div>
 
