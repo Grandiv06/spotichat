@@ -14,16 +14,18 @@ export function ProfileModal() {
   
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
 
   useEffect(() => {
     if (user && isProfileOpen) {
       setName(user.name);
       setUsername(user.username || '');
+      setBio(user.bio || '');
     }
   }, [user, isProfileOpen]);
 
   const handleSave = () => {
-    updateProfile({ name, username });
+    updateProfile({ name, username, bio });
     setProfileOpen(false);
   };
 
@@ -65,6 +67,17 @@ export function ProfileModal() {
                 value={username} 
                 onChange={(e) => setUsername(e.target.value)} 
                 placeholder="@username"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bio">Bio</Label>
+              <textarea
+                id="bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Tell others a bit about yourself..."
               />
             </div>
           </div>
