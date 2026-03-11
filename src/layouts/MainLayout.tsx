@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { Moon, Sun, Plus, Menu, Search } from 'lucide-react';
 import { useThemeStore } from '@/store/theme.store';
 import { useModalStore } from '@/store/modal.store';
+import { useSettingsStore } from '@/features/settings/store/settings.store';
 import { ChatList } from '@/features/chat/ChatList';
 import { ModalProvider } from '@/features/modals/ModalProvider';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,8 @@ import { Input } from '@/components/ui/input';
 
 export function MainLayout() {
   const { theme, setTheme } = useThemeStore();
-  const { setAddContactOpen, setProfileOpen, setSearchOpen } = useModalStore();
+  const { setAddContactOpen, setSearchOpen } = useModalStore();
+  const { setOpen: setSettingsOpen } = useSettingsStore();
   
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -22,10 +24,10 @@ export function MainLayout() {
       <div className="w-full md:w-80 lg:w-96 flex-shrink-0 border-r border-border flex flex-col bg-sidebar text-sidebar-foreground z-20">
         {/* Sidebar Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border gap-2">
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setProfileOpen(true)}>
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSettingsOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setProfileOpen(true)}>
+          <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setSettingsOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
           
