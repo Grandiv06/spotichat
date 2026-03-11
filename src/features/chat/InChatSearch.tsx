@@ -29,10 +29,9 @@ export function InChatSearch({
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 100);
     } else {
-      setQuery('');
       onSearch('');
     }
-  }, [isOpen]);
+  }, [isOpen, onSearch]);
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;

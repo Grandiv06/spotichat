@@ -205,12 +205,12 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply }: Messa
 
       {/* Right Side: Action Button */}
       {text.trim() && recordingState === 'idle' ? (
-        <Button onClick={handleSendText} size="icon" className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in duration-200">
-          <Send className="h-5 w-5 ml-1" />
+        <Button onClick={handleSendText} size="icon" className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in duration-200 flex items-center justify-center p-0">
+          <Send className="h-5 w-5 relative" style={{ left: '-1px', top: '1px' }} />
         </Button>
       ) : recordingState === 'locked' ? (
-        <Button onClick={handleSendMedia} size="icon" className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in">
-          <Send className="h-5 w-5 ml-1" />
+        <Button onClick={handleSendMedia} size="icon" className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in flex items-center justify-center p-0">
+          <Send className="h-5 w-5 relative" style={{ left: '-1px', top: '1px' }} />
         </Button>
       ) : (
         <div className="flex gap-1 animate-in zoom-in duration-200 relative touch-none">

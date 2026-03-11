@@ -1,4 +1,4 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useSettingsStore } from './store/settings.store';
@@ -49,7 +49,7 @@ export function SettingsSheet() {
         <SheetContent side="left" className="w-full !max-w-full sm:!max-w-[400px] p-0 flex flex-col h-full bg-background border-r">
           
           {/* Custom Header for Back Navigation */}
-          <div className="flex items-center px-2 py-3 border-b bg-card/50">
+          <div className="flex items-center px-4 py-3 border-b bg-card/50 min-h-[64px]">
             {viewHistory.length > 0 && (
               <Button variant="ghost" size="icon" onClick={goBack} className="mr-2">
                 <ArrowLeft className="h-5 w-5" />

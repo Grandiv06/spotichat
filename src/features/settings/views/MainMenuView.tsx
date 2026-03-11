@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/store/auth.store';
 import { useSettingsStore } from '../store/settings.store';
+import { useThemeStore } from '@/store/theme.store';
 import { SettingsRow } from '../components/SettingsRow';
 import { SettingsSection } from '../components/SettingsSection';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,12 +12,18 @@ import {
   Smartphone, 
   Database, 
   HelpCircle, 
-  LogOut 
+  LogOut,
+  Palette,
+  Moon,
+  Sun,
+  Monitor
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export function MainMenuView() {
   const { user } = useAuthStore();
   const { navigate } = useSettingsStore();
+  const { theme, setTheme } = useThemeStore();
 
   if (!user) return null;
 
@@ -76,6 +83,38 @@ export function MainMenuView() {
             label="Storage & Data" 
             onClick={() => navigate('storage')} 
           />
+        </SettingsSection>
+
+        <SettingsSection>
+          <div className="px-4 py-3 flex flex-col gap-3">
+            <div className="flex items-center gap-3 text-muted-foreground mb-1">
+              <Palette className="h-5 w-5" />
+              <span className="text-[15px] font-medium text-foreground">Theme Settings</span>
+            </div>
+            <div className="flex p-1 bg-muted rounded-xl gap-1">
+              <Button 
+                variant={theme === 'light' ? 'default' : 'ghost'} 
+                className={`flex-1 h-9 rounded-lg shadow-none ${theme === 'light' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+                onClick={() => setTheme('light')}
+              >
+                <Sun className="h-4 w-4 mr-2" /> Light
+              </Button>
+              <Button 
+                variant={theme === 'dark' ? 'default' : 'ghost'} 
+                className={`flex-1 h-9 rounded-lg shadow-none ${theme === 'dark' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+                onClick={() => setTheme('dark')}
+              >
+                <Moon className="h-4 w-4 mr-2" /> Dark
+              </Button>
+              <Button 
+                variant={theme === 'system' ? 'default' : 'ghost'} 
+                className={`flex-1 h-9 rounded-lg shadow-none ${theme === 'system' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'}`}
+                onClick={() => setTheme('system')}
+              >
+                <Monitor className="h-4 w-4 mr-2" /> Auto
+              </Button>
+            </div>
+          </div>
         </SettingsSection>
 
         <SettingsSection>

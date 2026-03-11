@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useSettingsStore } from '../store/settings.store';
 import { SettingsSection } from '../components/SettingsSection';
 import { SettingsRow } from '../components/SettingsRow';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
