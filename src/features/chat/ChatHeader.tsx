@@ -16,9 +16,10 @@ import {
 
 interface ChatHeaderProps {
   participant: User;
+  onToggleSearch?: () => void;
 }
 
-export function ChatHeader({ participant }: ChatHeaderProps) {
+export function ChatHeader({ participant, onToggleSearch }: ChatHeaderProps) {
   const { setSelectedChatId } = useChatStore();
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -45,7 +46,7 @@ export function ChatHeader({ participant }: ChatHeaderProps) {
         </div>
         
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={onToggleSearch}>
             <Search className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hidden sm:flex">

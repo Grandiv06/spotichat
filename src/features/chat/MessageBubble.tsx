@@ -3,12 +3,19 @@ import type { Message } from '@/services/chat.service';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
 import { AudioMessage } from './AudioMessage';
+import { VideoMessage } from './VideoMessage';
 
 interface MessageBubbleProps {
   message: Message;
+  searchQuery?: string;
+  isHighlightedMatch?: boolean;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
+export function MessageBubble({ message, searchQuery, isHighlightedMatch }: MessageBubbleProps) {
   const { user } = useAuthStore();
   const isMe = user?.id === message.senderId;
 
@@ -18,19 +25,30 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     <div className={cn("flex w-full mb-2", isMe ? "justify-end" : "justify-start")}>
       <div 
         className={cn(
-          "max-w-[85%] sm:max-w-[75%] px-4 py-2 rounded-2xl relative group shadow-sm",
+          "max-w-[85%] sm:max-w-[75%] px-4 py-2 rounded-2xl relative group shadow-sm transition-all duration-300",
           isMe 
             ? "bg-primary text-primary-foreground rounded-br-sm" 
-            : "bg-card border border-border text-card-foreground rounded-bl-sm"
+            : "bg-card border border-border text-card-foreground rounded-bl-sm",
+          isHighlightedMatch && "ring-2 ring-ring ring-offset-2 ring-offset-background scale-[1.02]"
         )}
       >
         {message.type === 'voice' ? (
           <AudioMessage isMe={isMe} status={message.status} />
         ) : message.type === 'video' ? (
-          <div className="w-48 h-48 bg-black/20 rounded-full flex items-center justify-center">Video Message</div>
+          <VideoMessage isMe={isMe} status={message.status} />
         ) : (
           <div className="text-[15px] leading-relaxed break-words break-all whitespace-pre-wrap">
-            {message.text || `[Empty ${message.type} message]`}
+            {(() => {
+              const text = message.text || `[Empty ${message.type} message]`;
+              if (!searchQuery) return text;
+              
+              const parts = text.split(new RegExp(`(${escapeRegExp(searchQuery)})`, 'gi'));
+              return parts.map((part, i) => 
+                part.toLowerCase() === searchQuery.toLowerCase() 
+                  ? <span key={i} className="bg-yellow-400/80 text-yellow-900 rounded-sm px-0.5">{part}</span>
+                  : part
+              );
+            })()}
           </div>
         )}
         

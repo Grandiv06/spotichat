@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Play, Pause, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,8 @@ export function AudioMessage({ isMe, status }: AudioMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const isSending = status === 'sending';
+
+  const waveformHeights = useMemo(() => Array.from({ length: 30 }).map(() => Math.max(20, Math.random() * 100)), []);
 
   // Simulation logic for play/pause progress
   useEffect(() => {
@@ -48,7 +50,7 @@ export function AudioMessage({ isMe, status }: AudioMessageProps) {
       <div className="flex flex-col flex-1 gap-1 w-full overflow-hidden">
         {/* Mock Waveform */}
         <div className={cn("flex items-end h-5 w-full gap-[2px] transition-opacity", isSending ? "opacity-30" : "opacity-80")}>
-          {Array.from({ length: 30 }).map((_, i) => {
+          {waveformHeights.map((height, i) => {
             const isActive = (i / 30) * 100 <= progress;
             return (
               <div 
@@ -57,7 +59,7 @@ export function AudioMessage({ isMe, status }: AudioMessageProps) {
                   "w-1 rounded-full transition-all duration-75",
                   isActive ? "bg-current opacity-100" : "bg-current opacity-30"
                 )}
-                style={{ height: `${Math.max(20, Math.random() * 100)}%` }}
+                style={{ height: `${height}%` }}
               />
             )
           })}

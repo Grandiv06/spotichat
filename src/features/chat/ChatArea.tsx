@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { ChatHeader } from './ChatHeader';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
+import { InChatSearch } from './InChatSearch';
 import { chatService } from '@/services/chat.service';
 import type { Message, Chat } from '@/services/chat.service';
 import { useAuthStore } from '@/store/auth.store';
@@ -16,6 +17,39 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Search state
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  // Matches (reversed so index 0 is the newest match)
+  const matchedMessages = messages
+    .filter(m => m.text?.toLowerCase().includes(searchQuery.toLowerCase()))
+    .reverse();
+  const matchCount = searchQuery ? matchedMessages.length : 0;
+
+  useEffect(() => {
+    setCurrentMatchIndex(0);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (matchCount > 0 && isSearching) {
+      const match = matchedMessages[currentMatchIndex];
+      const el = document.getElementById(`msg-${match.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [currentMatchIndex, searchQuery, matchCount, isSearching]);
+
+  const handleNextMatch = () => {
+    setCurrentMatchIndex(prev => Math.min(prev + 1, matchCount - 1));
+  };
+
+  const handlePrevMatch = () => {
+    setCurrentMatchIndex(prev => Math.max(prev - 1, 0));
+  };
 
   useEffect(() => {
     const loadChat = async () => {
@@ -84,7 +118,16 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
   return (
     <div className="flex-1 flex flex-col h-full w-full bg-accent/5 relative min-h-0">
-      <ChatHeader participant={chat.participant} />
+      <ChatHeader participant={chat.participant} onToggleSearch={() => setIsSearching(true)} />
+      <InChatSearch 
+        isOpen={isSearching}
+        onClose={() => { setIsSearching(false); setSearchQuery(''); }}
+        onSearch={setSearchQuery}
+        matchCount={matchCount}
+        currentMatchIndex={currentMatchIndex}
+        onNextMatch={handleNextMatch}
+        onPrevMatch={handlePrevMatch}
+      />
       
       <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar">
         <div className="flex flex-col gap-2 min-h-full justify-end pb-2">
@@ -96,7 +139,13 @@ export function ChatArea({ chatId }: ChatAreaProps) {
            </div>
            
            {messages.map((msg) => (
-             <MessageBubble key={msg.id} message={msg} />
+             <div key={msg.id} id={`msg-${msg.id}`}>
+               <MessageBubble 
+                 message={msg} 
+                 searchQuery={searchQuery}
+                 isHighlightedMatch={isSearching && matchCount > 0 && matchedMessages[currentMatchIndex]?.id === msg.id}
+               />
+             </div>
            ))}
            <div ref={scrollRef} />
         </div>
