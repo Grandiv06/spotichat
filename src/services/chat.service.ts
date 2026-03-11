@@ -10,6 +10,9 @@ export interface Message {
   fileUrl?: string; // For files/voice
   createdAt: string;
   status: 'sending' | 'sent' | 'delivered' | 'seen';
+  duration?: number; // In seconds
+  replyToId?: string; // ID of the referenced message
+  reactions?: Record<string, string[]>; // emoji -> array of userIds
 }
 
 export interface Chat {

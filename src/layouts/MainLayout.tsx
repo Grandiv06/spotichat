@@ -53,8 +53,8 @@ export function MainLayout() {
         </ScrollArea>
 
         {/* Floating Action Button */}
-        <div className="absolute bottom-6 left-6 md:left-[21rem] lg:left-[22rem] z-30">
-           <Button size="icon" className="h-14 w-14 rounded-full shadow-lg" onClick={() => setAddContactOpen(true)}>
+        <div className="absolute bottom-6 left-6 md:left-[18.5rem] lg:left-[19.5rem] z-30">
+           <Button size="icon" className="h-14 w-14 rounded-full shadow-lg cursor-pointer hover:bg-primary/80" onClick={() => setAddContactOpen(true)}>
              <Plus className="h-6 w-6" />
            </Button>
         </div>

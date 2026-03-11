@@ -1,27 +1,55 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VideoMessageProps {
   isMe: boolean;
   status?: 'sending' | 'sent' | 'delivered' | 'seen';
-  videoUrl?: string; // Optional placeholder video URL
+  videoUrl?: string; // Optional real video URL
+  duration?: number;
 }
 
-export function VideoMessage({ isMe, status, videoUrl }: VideoMessageProps) {
+export function VideoMessage({ isMe, status, videoUrl, duration }: VideoMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
   const isSending = status === 'sending';
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const totalSeconds = duration || 12;
 
   const togglePlayback = () => {
-    if (!videoRef.current) return;
     if (isPlaying) {
-      videoRef.current.pause();
+      videoRef.current?.pause();
+      setIsPlaying(false);
     } else {
-      videoRef.current.play();
+      videoRef.current?.play();
+      setIsPlaying(true);
     }
-    setIsPlaying(!isPlaying);
   };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.duration) {
+      setProgress((videoRef.current.currentTime / videoRef.current.duration) * 100);
+    }
+  };
+
+  // Simulation interval for mock videos (when videoUrl is empty)
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (isPlaying && !videoUrl) {
+      const step = 100 / (totalSeconds * 10);
+      interval = setInterval(() => {
+        setProgress(p => {
+          if (p + step >= 100) {
+            setIsPlaying(false);
+            return 0;
+          }
+          return p + step;
+        });
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, videoUrl, totalSeconds]);
 
   return (
     <div className={cn(
@@ -34,9 +62,13 @@ export function VideoMessage({ isMe, status, videoUrl }: VideoMessageProps) {
           ref={videoRef}
           src={videoUrl} 
           className="w-full h-full object-cover transform -scale-x-100"
-          loop
+          loop={false}
           playsInline
-          onEnded={() => setIsPlaying(false)}
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={() => {
+            setIsPlaying(false);
+            setProgress(0);
+          }}
         />
       ) : (
         <div className="w-full h-full bg-black/80 flex items-center justify-center text-[10px] text-white/50 text-center px-4">
@@ -62,9 +94,25 @@ export function VideoMessage({ isMe, status, videoUrl }: VideoMessageProps) {
         )}
       </div>
       
+      {/* Circular Progress Ring */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none transform -rotate-90">
+        <circle 
+          cx="96" cy="96" r="94" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="4" 
+          className={cn("text-primary transition-all duration-100", progress > 0 ? "opacity-100" : "opacity-0")}
+          strokeDasharray="590.6"
+          strokeDashoffset={590.6 - (590.6 * progress) / 100}
+        />
+      </svg>
+      
       {/* Duration stamp */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] font-medium px-2 py-0.5 rounded px-2 bg-black/50 text-white backdrop-blur-md opacity-80">
-        0:12
+        {isPlaying 
+           ? `0:${Math.floor((progress / 100) * totalSeconds).toString().padStart(2, '0')}` 
+           : `0:${Math.floor(totalSeconds).toString().padStart(2, '0')}`
+        }
       </div>
     </div>
   );

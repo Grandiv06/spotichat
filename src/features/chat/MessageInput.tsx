@@ -7,12 +7,14 @@ import { useMediaPermissions } from '@/hooks/useMediaPermissions';
 import { cn } from '@/lib/utils';
 
 interface MessageInputProps {
-  onSend: (text?: string, type?: 'text' | 'voice' | 'video' | 'file') => void;
+  onSend: (text?: string, type?: 'text' | 'voice' | 'video' | 'file', duration?: number) => void;
+  replyingToMessage?: any; // Message type from service
+  onCancelReply?: () => void;
 }
 
 type RecordingState = 'idle' | 'holding' | 'locked';
 
-export function MessageInput({ onSend }: MessageInputProps) {
+export function MessageInput({ onSend, replyingToMessage, onCancelReply }: MessageInputProps) {
   const [text, setText] = useState('');
   const [mediaType, setMediaType] = useState<'voice' | 'video'>('voice');
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
@@ -21,6 +23,7 @@ export function MessageInput({ onSend }: MessageInputProps) {
   
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startY = useRef<number>(0);
+  const recordingStartTime = useRef<number>(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleSendText = () => {
@@ -31,14 +34,17 @@ export function MessageInput({ onSend }: MessageInputProps) {
   };
 
   const handleSendMedia = () => {
-    onSend(undefined, mediaType);
+    const durationObj = recordingStartTime.current ? Math.floor((Date.now() - recordingStartTime.current) / 1000) : 0;
+    onSend(undefined, mediaType, durationObj);
     setRecordingState('idle');
+    recordingStartTime.current = 0;
     stopAudio();
     stopVideo();
   };
 
   const cancelRecording = () => {
     setRecordingState('idle');
+    recordingStartTime.current = 0;
     stopAudio();
     stopVideo();
   };
@@ -54,13 +60,11 @@ export function MessageInput({ onSend }: MessageInputProps) {
     setMediaType(prev => prev === 'voice' ? 'video' : 'voice');
   };
 
-  // --- Pointer Interaction Logic ---
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (e.button !== 0) return; // Only process left click / touch
+  // --- Interaction Logic (Touch & Mouse unified) ---
+  const handleStart = (clientY: number) => {
     if (recordingState !== 'idle') return;
 
-    e.currentTarget.setPointerCapture(e.pointerId);
-    startY.current = e.clientY;
+    startY.current = clientY;
 
     pressTimer.current = setTimeout(async () => {
       // Long press detected
@@ -72,25 +76,22 @@ export function MessageInput({ onSend }: MessageInputProps) {
       }
       
       if (stream) {
+        recordingStartTime.current = Date.now();
         setRecordingState('holding');
-      } else {
-        // Permission denied or error
       }
     }, 300); // 300ms to differentiate click from hold
   };
 
-  const onPointerMove = (e: React.PointerEvent) => {
+  const handleMove = (clientY: number) => {
     if (recordingState === 'holding') {
-      const deltaY = startY.current - e.clientY;
+      const deltaY = startY.current - clientY;
       if (deltaY > 50) { // Dragged up by 50px
         setRecordingState('locked');
       }
     }
   };
 
-  const onPointerUp = (e: React.PointerEvent) => {
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    
+  const handleEnd = () => {
     if (pressTimer.current) {
       clearTimeout(pressTimer.current);
       pressTimer.current = null;
@@ -105,17 +106,66 @@ export function MessageInput({ onSend }: MessageInputProps) {
     }
   };
 
-  const onPointerCancel = () => {
+  const handleCancel = () => {
     if (pressTimer.current) clearTimeout(pressTimer.current);
     if (recordingState === 'holding') {
       cancelRecording();
     }
   };
 
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return; // Only process left click for mouse
+    e.currentTarget.setPointerCapture(e.pointerId);
+    handleStart(e.clientY);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    handleMove(e.clientY);
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    handleEnd();
+  };
+
+  const onPointerCancel = () => {
+    handleCancel();
+  };
+  
+  // Native touch events for better mobile reliability
+  const onTouchStart = (e: React.TouchEvent) => {
+    handleStart(e.touches[0].clientY);
+  };
+  
+  const onTouchMove = (e: React.TouchEvent) => {
+    handleMove(e.touches[0].clientY);
+  };
+  
+  const onTouchEnd = (e: React.TouchEvent) => {
+    handleEnd();
+  };
+
   return (
-    <div className="relative p-3 bg-background border-t border-border flex items-end gap-2 transition-all">
-      {/* Slide to Lock UI Overlay */}
-      {recordingState === 'holding' && (
+    <div className="flex flex-col bg-background border-t border-border transition-all w-full relative">
+      {/* Reply Preview Banner */}
+      {replyingToMessage && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-accent/20 border-b border-border/50 animate-in slide-in-from-bottom-2">
+          <div className="w-1 h-8 bg-primary rounded-full shrink-0" />
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="text-xs font-semibold text-primary truncate">Replying to message</span>
+            <span className="text-[13px] text-muted-foreground truncate">
+              {replyingToMessage.text || `[${replyingToMessage.type} Message]`}
+            </span>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" onClick={onCancelReply}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </Button>
+        </div>
+      )}
+      
+      <div className="relative p-3 flex items-end gap-2 w-full">
+        {/* Slide to Lock UI Overlay */}
+        {recordingState === 'holding' && (
         <div className="absolute right-4 bottom-20 flex flex-col items-center animate-in fade-in slide-in-from-bottom-5 duration-200">
           <div className="bg-background border rounded-full p-2 shadow-sm mb-2 opacity-80">
             <Lock className="h-5 w-5 text-muted-foreground mb-1" />
@@ -176,13 +226,18 @@ export function MessageInput({ onSend }: MessageInputProps) {
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerCancel}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={handleCancel}
             onContextMenu={(e) => e.preventDefault()}
             title="Click to switch, Hold to Record"
           >
              {mediaType === 'voice' ? <Mic className="h-5 w-5" /> : <Video className="h-5 w-5" />}
           </Button>
         </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

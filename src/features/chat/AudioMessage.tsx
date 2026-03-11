@@ -6,31 +6,35 @@ import { cn } from '@/lib/utils';
 interface AudioMessageProps {
   isMe: boolean;
   status?: 'sending' | 'sent' | 'delivered' | 'seen';
+  duration?: number;
 }
 
-export function AudioMessage({ isMe, status }: AudioMessageProps) {
+export function AudioMessage({ isMe, status, duration }: AudioMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const isSending = status === 'sending';
 
   const waveformHeights = useMemo(() => Array.from({ length: 30 }).map(() => Math.max(20, Math.random() * 100)), []);
 
+  const totalSeconds = duration || 12; // Fallback to 12s if not provided
+
   // Simulation logic for play/pause progress
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (isPlaying) {
+      const step = 100 / (totalSeconds * 10); // How much to add every 100ms
       interval = setInterval(() => {
         setProgress(p => {
-          if (p >= 100) {
+          if (p + step >= 100) {
             setIsPlaying(false);
             return 0;
           }
-          return p + 2;
+          return p + step;
         });
       }, 100);
     }
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [isPlaying, totalSeconds]);
 
   return (
     <div className="flex items-center gap-3 w-48 sm:w-64 pt-1 pb-1">
@@ -66,7 +70,10 @@ export function AudioMessage({ isMe, status }: AudioMessageProps) {
         </div>
         <div className="flex justify-between items-center mt-1">
            <span className="text-[11px] tabular-nums font-medium opacity-80">
-             {isPlaying ? `0:${Math.floor((progress * 0.12)).toString().padStart(2, '0')}` : '0:12'}
+             {isPlaying 
+               ? `0:${Math.floor((progress / 100) * totalSeconds).toString().padStart(2, '0')}` 
+               : `0:${Math.floor(totalSeconds).toString().padStart(2, '0')}`
+             }
            </span>
         </div>
       </div>
