@@ -27,7 +27,7 @@ export function MainLayout() {
         {/* Sidebar Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border gap-2">
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSettingsOpen(true)}>
-            <Settings className="h-5 w-5 text-muted-foreground" />
+            <Menu className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setSettingsOpen(true)}>
             <Menu className="h-5 w-5" />
