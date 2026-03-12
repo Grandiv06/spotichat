@@ -21,6 +21,7 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   
   const { requestAudio, requestVideo, stopAudio, stopVideo, audio, video } = useMediaPermissions();
+  const currentMediaError = mediaType === 'voice' ? audio.error : video.error;
   
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startY = useRef<number>(0);
@@ -121,6 +122,8 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return; // Only process left click for mouse
+    e.preventDefault();
+    e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     handleStart(e.clientY);
   };
@@ -160,6 +163,11 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
       )}
       
       <div className="relative p-3 flex items-end gap-2 w-full">
+        {currentMediaError && (
+          <div className="absolute left-4 bottom-full mb-2 max-w-[80%] text-xs text-destructive bg-background/95 border border-destructive/40 rounded-2xl px-3 py-2 shadow-sm">
+            {currentMediaError}
+          </div>
+        )}
         {/* Slide to Lock UI Overlay */}
         {recordingState === 'holding' && (
         <div className="absolute right-4 bottom-20 flex flex-col items-center animate-in fade-in slide-in-from-bottom-5 duration-200">
