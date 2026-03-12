@@ -231,7 +231,9 @@ export function OTP() {
                 <Input
                   key={index}
                   id={`code-${index}`}
-                  ref={(el) => (inputsRef.current[index] = el)}
+                  ref={(el) => {
+                    inputsRef.current[index] = el;
+                  }}
                   value={digit}
                   onChange={(e) => handleDigitChange(index, e.target.value)}
                   onKeyDown={(e) => handleDigitKeyDown(index, e)}

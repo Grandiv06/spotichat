@@ -55,7 +55,7 @@ function normalizePhoneInput(value: string) {
 export function Login() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [countryCode, setCountryCode] = useState(COUNTRY_OPTIONS[0].dialCode);
+  const [countryCode, setCountryCode] = useState<string>(COUNTRY_OPTIONS[0].dialCode);
   
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(phoneSchema),

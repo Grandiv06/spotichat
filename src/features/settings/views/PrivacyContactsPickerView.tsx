@@ -9,8 +9,6 @@ import { usePrivacySettingsStore } from '../store/privacy.store';
 import { useSettingsStore } from '../store/settings.store';
 import { Check } from 'lucide-react';
 
-type Contact = (typeof mockedContacts)[number];
-
 export function PrivacyContactsPickerView() {
   const {
     pickerField,

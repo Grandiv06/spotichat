@@ -9,8 +9,6 @@ import { usePrivacySettingsStore } from '../store/privacy.store';
 import { useSettingsStore } from '../store/settings.store';
 import { Ban, Check } from 'lucide-react';
 
-type Contact = (typeof mockedContacts)[number];
-
 export function BlockedUsersView() {
   const { blockedUsers, setBlockedUsers } = usePrivacySettingsStore();
   const { goBack } = useSettingsStore();
