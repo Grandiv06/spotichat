@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Video, ChevronLeft, ChevronRight, X, ArrowLeft } from 'lucide-react';
+import { Video, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import type { User } from '@/services/auth.service';
 
