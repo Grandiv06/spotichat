@@ -58,11 +58,21 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full !max-w-full sm:!max-w-[400px] p-0 flex flex-col h-[100dvh] bg-background border-l border-none sm:border-solid overflow-hidden">
+      <SheetContent side="right" showCloseButton={false} className="!w-full !max-w-full sm:!max-w-[400px] p-0 flex flex-col h-[100dvh] bg-background border-none sm:border-l overflow-hidden">
+        {/* Back Button for Mobile/Full-screen */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="absolute top-4 left-4 z-20 text-muted-foreground hover:text-foreground"
+          onClick={() => showSharedMedia ? setShowSharedMedia(false) : onOpenChange(false)}
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </Button>
+
         {/* Sticky Header that morphs slightly */}
         {!showSharedMedia && (
           <div 
-            className="absolute top-0 left-0 right-0 z-10 flex flex-col items-center justify-end px-4 backdrop-blur-md border-b transition-all duration-0"
+            className="absolute top-0 left-0 right-0 z-10 flex flex-col items-center justify-end px-4 backdrop-blur-md transition-all duration-0"
             style={{ 
               height: `${220 - scrollProgress * 160}px`,
               backgroundColor: `hsl(var(--muted) / ${headerOpacity})`,
@@ -80,7 +90,7 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
           >
              {/* This Avatar is visually separate but tied to scroll */}
              <Avatar 
-               className="mb-3 ring-2 ring-primary/10 transition-all duration-0 cursor-pointer"
+               className="mb-3 transition-all duration-0 cursor-pointer"
                style={{
                  width: `${avatarSize}px`,
                  height: `${avatarSize}px`,
@@ -127,7 +137,7 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
            {/* Spacer for sticky header */}
            <div style={{ height: '220px' }} />
            
-           <div className="flex justify-center gap-6 py-4 px-6 border-b border-border bg-card">
+           <div className="flex justify-center gap-6 py-4 px-6 bg-card">
               <Button variant="ghost" className="flex flex-col gap-2 h-auto py-2 hover:bg-accent/50 text-muted-foreground hover:text-foreground">
                 <Phone className="h-5 w-5" />
                 <span className="text-xs">Call</span>
@@ -193,13 +203,11 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
         ) : (
           /* Shared Media View */
           <div className="flex flex-col h-full bg-background animate-in slide-in-from-right-2 duration-200">
-            <div className="flex items-center gap-4 p-4 border-b bg-card/50">
-              <Button variant="ghost" size="icon" onClick={() => setShowSharedMedia(false)} className="shrink-0">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
+            <div className="flex items-center gap-4 p-4 border-b bg-card/50 min-h-[72px]">
+              <div className="w-10 shrink-0" /> {/* Spacer for global back button */}
               <div className="flex flex-col">
-                <span className="font-semibold">Shared Media</span>
-                <span className="text-xs text-muted-foreground">{sharedMedia.length} photos</span>
+                <span className="font-semibold px-1">Shared Media</span>
+                <span className="text-xs text-muted-foreground px-1">{sharedMedia.length} photos</span>
               </div>
             </div>
             

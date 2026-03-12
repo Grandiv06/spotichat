@@ -6,12 +6,12 @@ import { useAuthStore } from '@/store/auth.store';
 import { AudioMessage } from './AudioMessage';
 import { VideoMessage } from './VideoMessage';
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const EMOJI_LIST = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
@@ -34,7 +34,7 @@ function escapeRegExp(string: string) {
 export function MessageBubble({ 
   message, 
   searchQuery, 
-  isHighlightedMatch, 
+  isHighlightedMatch,
   onReply, 
   repliedMessage,
   onDeleteToggle,
@@ -81,13 +81,20 @@ export function MessageBubble({
   const reactionsSummary = message.reactions ? Object.entries(message.reactions).filter(([, users]) => users.length > 0) : [];
 
   return (
-    <div className={cn("flex w-full mb-2", isMe ? "justify-end" : "justify-start overflow-hidden")}>
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <div className="flex flex-col max-w-[85%] sm:max-w-[75%]">
+    <div
+      className={cn(
+        "flex w-full mb-2",
+        isMe ? "justify-end" : "justify-start overflow-hidden",
+        // Telegram-style "pop up" animation for newly sent messages
+        message.status === 'sending' && "animate-in slide-in-from-bottom-2 fade-in duration-200",
+      )}
+    >
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <div className="flex flex-col max-w-[85%] sm:max-w-[75%] outline-none">
             <div 
               className={cn(
-                "px-4 py-2 rounded-2xl relative group shadow-sm transition-all",
+                "px-4 py-2 rounded-2xl relative group shadow-sm transition-all cursor-pointer",
                 translateX === 0 && "duration-200", // smooth snap back
                 isMe 
                   ? "bg-primary text-primary-foreground rounded-br-sm" 
@@ -103,7 +110,8 @@ export function MessageBubble({
         {repliedMessage && (
            <div 
              className="cursor-pointer mb-2 flex flex-col border-l-2 border-primary/50 pl-2 opacity-80 hover:opacity-100 transition-opacity"
-             onClick={() => {
+             onClick={(e) => {
+               e.stopPropagation();
                const el = document.getElementById(`msg-${repliedMessage.id}`);
                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
              }}
@@ -134,18 +142,40 @@ export function MessageBubble({
           </div>
         )}
         
-          <div className={cn(
-            "flex items-center justify-end gap-1 mt-1 -mb-1",
-            isMe ? "text-primary-foreground/70" : "text-muted-foreground"
-          )}>
+          <div
+            className={cn(
+              "flex items-center justify-end gap-1 mt-1 -mb-1",
+              isMe ? "text-primary-foreground/70" : "text-muted-foreground",
+            )}
+          >
             <span className="text-[11px] leading-none">{time}</span>
             {isMe && (
-              <span className="ml-0.5 mt-0.5">
-                {message.status === 'sending' && <Clock className="h-3.5 w-3.5" />}
-                {message.status === 'sent' && <Check className="h-4 w-4" />}
-                {(message.status === 'delivered' || message.status === 'seen') && (
-                  <CheckCheck className={cn("h-4 w-4", message.status === 'seen' && "text-blue-400")} />
-                )}
+              <span className="ml-0.5 mt-0.5 inline-flex h-4 w-4 items-center justify-center relative overflow-hidden">
+                <Clock
+                  className={cn(
+                    "h-3.5 w-3.5 absolute transition-all duration-200",
+                    message.status === 'sending'
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-1",
+                  )}
+                />
+                <Check
+                  className={cn(
+                    "h-4 w-4 absolute transition-all duration-200",
+                    message.status === 'sent'
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-1",
+                  )}
+                />
+                <CheckCheck
+                  className={cn(
+                    "h-4 w-4 absolute transition-all duration-200",
+                    (message.status === 'delivered' || message.status === 'seen')
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-1",
+                    message.status === 'seen' && "text-blue-400",
+                  )}
+                />
               </span>
             )}
           </div>
@@ -159,12 +189,15 @@ export function MessageBubble({
               return (
                 <div 
                   key={emoji}
-                  onClick={() => onToggleReaction?.(emoji)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleReaction?.(emoji);
+                  }}
                   className={cn(
                     "flex items-center justify-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold cursor-pointer border shadow-sm transition-colors",
                     hasReacted 
-                      ? "bg-primary/20 border-primary/30 text-primary" 
-                      : "bg-card border-border text-muted-foreground hover:bg-accent"
+                       ? "bg-primary/20 border-primary/30 text-primary" 
+                       : "bg-card border-border text-muted-foreground hover:bg-accent"
                   )}
                 >
                   <span className="text-[13px] leading-none">{emoji}</span>
@@ -175,9 +208,9 @@ export function MessageBubble({
           </div>
         )}
       </div>
-      </ContextMenuTrigger>
+      </DropdownMenuTrigger>
       
-      <ContextMenuContent className="w-56">
+      <DropdownMenuContent className="w-56" align={isMe ? "end" : "start"} sideOffset={5}>
         {/* Inline Emoji Row */}
         <div className="flex items-center justify-between px-2 py-2 mb-1">
           {EMOJI_LIST.map((emoji) => (
@@ -190,27 +223,27 @@ export function MessageBubble({
             </div>
           ))}
         </div>
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={onReply} className="cursor-pointer gap-2">
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onReply} className="cursor-pointer gap-2">
           <Reply className="h-4 w-4" /> Reply
-        </ContextMenuItem>
+        </DropdownMenuItem>
         {message.type === 'text' && (
-          <ContextMenuItem onClick={handleCopy} className="cursor-pointer gap-2">
+          <DropdownMenuItem onClick={handleCopy} className="cursor-pointer gap-2">
             <Copy className="h-4 w-4" /> Copy Text
-          </ContextMenuItem>
+          </DropdownMenuItem>
         )}
-        <ContextMenuItem onClick={onPinMessage} className="cursor-pointer gap-2">
+        <DropdownMenuItem onClick={onPinMessage} className="cursor-pointer gap-2">
           <Pin className="h-4 w-4" /> Pin Message
-        </ContextMenuItem>
-        <ContextMenuItem onClick={onForwardToggle} className="cursor-pointer gap-2">
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onForwardToggle} className="cursor-pointer gap-2">
           <Forward className="h-4 w-4" /> Forward Message
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={onDeleteToggle} className="cursor-pointer gap-2 text-destructive focus:text-destructive focus:bg-destructive/10">
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onDeleteToggle} className="cursor-pointer gap-2 text-destructive focus:text-destructive focus:bg-destructive/10">
           <Trash2 className="h-4 w-4" /> Delete Message
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   </div>
   );
 }

@@ -16,7 +16,7 @@ export function SettingsSection({ title, children, className, description }: Set
           {title}
         </h3>
       )}
-      <div className="bg-card dark:bg-card/50 overflow-hidden sm:rounded-xl border-y sm:border shadow-sm">
+      <div className="bg-card dark:bg-card/50 overflow-hidden rounded-xl border-y border shadow-sm">
         <div className="divide-y divide-border">
           {children}
         </div>

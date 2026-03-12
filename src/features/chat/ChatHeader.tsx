@@ -25,7 +25,7 @@ export function ChatHeader({ participant, onToggleSearch }: ChatHeaderProps) {
 
   return (
     <>
-      <div className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 bg-background z-10 sticky top-0">
+      <div className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 bg-background z-10 chat-header">
         <div className="flex items-center gap-1 sm:gap-3 cursor-pointer" onClick={() => setProfileOpen(true)}>
           <Button 
             variant="ghost" 

@@ -26,12 +26,17 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
   const startY = useRef<number>(0);
   const recordingStartTime = useRef<number>(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSendText = () => {
     if (text.trim()) {
       onSend(text.trim(), 'text');
       setText('');
     }
+  };
+
+  const preventFocusLoss = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
   };
 
   const handleSendMedia = () => {
@@ -102,7 +107,7 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
       // Released without locking, send immediately
       handleSendMedia();
     } else if (recordingState === 'idle') {
-      // Short click detected
+      // Short click detected - only if it hasn't moved much (optional refinement)
       toggleMediaType();
     }
   };
@@ -129,21 +134,11 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
     handleEnd();
   };
 
-  const onPointerCancel = () => {
+  const onPointerCancel = (e: React.PointerEvent) => {
     handleCancel();
-  };
-  
-  // Native touch events for better mobile reliability
-  const onTouchStart = (e: React.TouchEvent) => {
-    handleStart(e.touches[0].clientY);
-  };
-  
-  const onTouchMove = (e: React.TouchEvent) => {
-    handleMove(e.touches[0].clientY);
-  };
-  
-  const onTouchEnd = () => {
-    handleEnd();
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
   };
 
   return (
@@ -183,16 +178,17 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
           </Button>
           
           <div className="flex-1 bg-accent/50 rounded-2xl min-h-[44px] flex items-center px-4 py-2 border border-transparent focus-within:border-ring transition-colors">
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={disabled ? "Connecting..." : "Write a message..."}
-              className="w-full bg-transparent border-none outline-none resize-none max-h-32 text-[15px] placeholder:text-muted-foreground/70 disabled:opacity-50"
-              rows={1}
-              style={{ minHeight: '24px' }}
-              disabled={disabled}
-            />
+              <textarea
+                ref={inputRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={disabled ? "Connecting..." : "Write a message..."}
+                className="w-full bg-transparent border-none outline-none resize-none max-h-32 text-[15px] placeholder:text-muted-foreground/70 disabled:opacity-50"
+                rows={1}
+                style={{ minHeight: '24px' }}
+                disabled={disabled}
+              />
           </div>
         </>
       ) : (
@@ -207,12 +203,24 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
 
       {/* Right Side: Action Button */}
       {text.trim() && recordingState === 'idle' ? (
-        <Button onClick={handleSendText} disabled={disabled} size="icon" className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in duration-200 flex items-center justify-center p-0">
-          <Send className="h-5 w-5 relative" style={{ left: '-1px', top: '1px' }} />
+        <Button
+          onMouseDown={preventFocusLoss}
+          onTouchStart={preventFocusLoss}
+          onClick={handleSendText}
+          disabled={disabled}
+          size="icon"
+          className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in duration-200 flex items-center justify-center p-0"
+        >
+          <Send className="h-5 w-5" />
         </Button>
       ) : recordingState === 'locked' ? (
-        <Button onClick={handleSendMedia} disabled={disabled} size="icon" className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in flex items-center justify-center p-0">
-          <Send className="h-5 w-5 relative" style={{ left: '-1px', top: '1px' }} />
+        <Button
+          onClick={handleSendMedia}
+          disabled={disabled}
+          size="icon"
+          className="h-11 w-11 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-sm hover:brightness-110 animate-in zoom-in flex items-center justify-center p-0"
+        >
+          <Send className="h-5 w-5" />
         </Button>
       ) : (
         <div className="flex gap-1 animate-in zoom-in duration-200 relative touch-none">
@@ -229,10 +237,6 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerCancel}
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
-            onTouchCancel={handleCancel}
             onContextMenu={(e) => e.preventDefault()}
             title="Click to switch, Hold to Record"
           >
