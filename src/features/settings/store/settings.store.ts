@@ -1,13 +1,16 @@
 import { create } from 'zustand';
 
-export type SettingsView = 
-  | 'main' 
-  | 'profile' 
-  | 'contacts' 
-  | 'notifications' 
-  | 'privacy' 
-  | 'devices' 
-  | 'storage' 
+export type SettingsView =
+  | 'main'
+  | 'profile'
+  | 'contacts'
+  | 'notifications'
+  | 'privacy'
+  | 'privacy-phone-number'
+  | 'privacy-last-seen'
+  | 'privacy-profile-photo'
+  | 'devices'
+  | 'storage'
   | 'help'
   | 'logout';
 

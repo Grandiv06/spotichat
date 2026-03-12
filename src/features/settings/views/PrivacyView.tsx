@@ -1,11 +1,13 @@
-import { useState } from 'react';
 import { SettingsSection } from '../components/SettingsSection';
 import { SettingsRow } from '../components/SettingsRow';
-import { mockedPrivacySettings } from '../mock/settings.mock';
 import { Lock, ShieldAlert, Phone, Eye, UserX } from 'lucide-react';
+import { usePrivacySettingsStore } from '../store/privacy.store';
+import { useSettingsStore } from '../store/settings.store';
 
 export function PrivacyView() {
-  const [settings] = useState(mockedPrivacySettings);
+  const { phoneNumber, lastSeen, profilePhoto, blockedUsers } =
+    usePrivacySettingsStore();
+  const { navigate } = useSettingsStore();
 
   return (
     <div className="flex flex-col h-full animate-in slide-in-from-right-2 duration-300 p-4">
@@ -18,17 +20,20 @@ export function PrivacyView() {
         <SettingsRow 
           icon={<Phone className="h-5 w-5" />}
           label="Phone Number" 
-          description={settings.currentPhoneNumberOption} 
+          description={phoneNumber.option}
+          onClick={() => navigate('privacy-phone-number')}
         />
         <SettingsRow 
           icon={<Eye className="h-5 w-5" />}
           label="Last Seen & Online" 
-          description={settings.currentLastSeenOption} 
+          description={lastSeen.option}
+          onClick={() => navigate('privacy-last-seen')}
         />
         <SettingsRow 
           icon={<UserX className="h-5 w-5" />}
           label="Profile Photo" 
-          description={settings.currentProfilePhotoOption} 
+          description={profilePhoto.option}
+          onClick={() => navigate('privacy-profile-photo')}
         />
       </SettingsSection>
 
@@ -48,7 +53,7 @@ export function PrivacyView() {
       <SettingsSection title="Blocked">
         <SettingsRow 
           label="Blocked Users" 
-          description={`${settings.blockedUsers.length} users`} 
+          description={`${blockedUsers.length} users`} 
         />
       </SettingsSection>
     </div>

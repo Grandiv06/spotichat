@@ -47,3 +47,9 @@ export const mockedPrivacySettings = {
     { id: 'u12', name: 'John Doe', username: '@johnd' }
   ]
 };
+
+export const mockedContacts = [
+  { id: '1', name: 'Alice Cooper', phone: '+1234567890', username: '@alice', lastSeen: 'last seen recently', avatar: '' },
+  { id: '2', name: 'Bob Smith', phone: '+0987654321', username: '@bobsmith', lastSeen: 'online', avatar: '' },
+  { id: '3', name: 'Charlie Brown', phone: '+1122334455', username: '@charlieb', lastSeen: 'last seen 2 hours ago', avatar: '' }
+];
