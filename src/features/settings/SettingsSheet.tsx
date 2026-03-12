@@ -8,6 +8,8 @@ import { ContactsView } from './views/ContactsView';
 import { NotificationsView } from './views/NotificationsView';
 import { PrivacyView } from './views/PrivacyView';
 import { PrivacyDetailView } from './views/PrivacyDetailView';
+import { PrivacyContactsPickerView } from './views/PrivacyContactsPickerView';
+import { BlockedUsersView } from './views/BlockedUsersView';
 import { DevicesView } from './views/DevicesView';
 import { StorageView } from './views/StorageView';
 import { HelpView } from './views/HelpView';
@@ -52,6 +54,10 @@ export function SettingsSheet() {
             description="Control who is allowed to see your profile photo."
           />
         );
+      case 'privacy-contacts-picker':
+        return <PrivacyContactsPickerView />;
+      case 'privacy-blocked-users':
+        return <BlockedUsersView />;
       case 'devices':
         return <DevicesView />;
       case 'storage':
@@ -81,6 +87,10 @@ export function SettingsSheet() {
         return 'Last Seen & Online';
       case 'privacy-profile-photo':
         return 'Profile Photo';
+      case 'privacy-contacts-picker':
+        return 'Choose Contacts';
+      case 'privacy-blocked-users':
+        return 'Blocked Users';
       case 'devices':
         return 'Devices';
       case 'storage':

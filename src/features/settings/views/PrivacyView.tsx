@@ -54,6 +54,7 @@ export function PrivacyView() {
         <SettingsRow 
           label="Blocked Users" 
           description={`${blockedUsers.length} users`} 
+          onClick={() => navigate('privacy-blocked-users')}
         />
       </SettingsSection>
     </div>

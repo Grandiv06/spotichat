@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { ChatHeader } from "./ChatHeader";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
@@ -8,6 +8,9 @@ import type { Message, Chat } from "@/services/chat.service";
 import { useAuthStore } from "@/store/auth.store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { playSendSound } from "@/lib/sounds";
+import { CallScreen } from "@/features/call/CallScreen";
+import { usePrivacySettingsStore } from "@/features/settings/store/privacy.store";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +45,10 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     null,
   );
   const [pinnedMessage, setPinnedMessage] = useState<Message | null>(null);
+  const [isCallOpen, setIsCallOpen] = useState(false);
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+
+  const { blockedUsers, setBlockedUsers } = usePrivacySettingsStore();
 
   // Matches (reversed so index 0 is the newest match)
   const matchedMessages = messages
@@ -104,12 +111,35 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     }
   }, [messages]);
 
+  const isRestrictedByOther = useMemo(
+    () => chat?.participant.id === "u3",
+    [chat],
+  );
+
+  const isBlockedByMe = useMemo(
+    () =>
+      !!(
+        chat &&
+        blockedUsers.some((u) => u.id === chat.participant.id)
+      ),
+    [chat, blockedUsers],
+  );
+
+  const isChatDisabled = isLoading || !chat || isCallOpen || isBlockedByMe || isRestrictedByOther;
+
+  const disabledPlaceholder = isBlockedByMe
+    ? "You blocked this user. Unblock them from Privacy settings to send messages."
+    : isRestrictedByOther
+    ? "You can't send messages to this user."
+    : undefined;
+
   const handleSend = async (
     text?: string,
     type: "text" | "voice" | "video" | "file" = "text",
     duration?: number,
   ) => {
     if (!user) return;
+    if (isBlockedByMe || isRestrictedByOther) return;
 
     // We only need text for actual text messages
     if (type === "text" && (!text || !text.trim())) return;
@@ -131,6 +161,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
     // 1. Optimistic UI update
     setMessages((prev) => [...prev, optimisticMsg]);
+    // Play send sound immediately on optimistic send
+    playSendSound();
 
     try {
       // 2. Network Request
@@ -207,6 +239,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         <ChatHeader
           participant={chat.participant}
           onToggleSearch={() => setIsSearching(true)}
+          onStartCall={() => setIsCallOpen(true)}
+          onBlockUser={() => setIsBlockDialogOpen(true)}
         />
       ) : (
         <div className="h-16 border-b bg-card flex items-center px-4 animate-pulse">
@@ -366,7 +400,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         onSend={handleSend}
         replyingToMessage={replyingToMessage}
         onCancelReply={() => setReplyingToMessage(null)}
-        disabled={isLoading || !chat}
+        disabled={isChatDisabled}
+        disabledPlaceholder={disabledPlaceholder}
       />
 
       {/* Action Modals */}
@@ -397,6 +432,55 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Block user confirm dialog */}
+      <Dialog
+        open={isBlockDialogOpen}
+        onOpenChange={(open) => setIsBlockDialogOpen(open)}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              Block {chat?.participant.name ?? "this user"}?
+            </DialogTitle>
+            <DialogDescription>
+              They will no longer be able to send you messages or call you. You
+              can unblock them later from Settings &gt; Privacy &amp; Security &gt;
+              Blocked Users.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsBlockDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!chat) return;
+                const existingIds = blockedUsers.map((u) => u.id);
+                if (!existingIds.includes(chat.participant.id)) {
+                  setBlockedUsers([...existingIds, chat.participant.id]);
+                }
+                setIsBlockDialogOpen(false);
+              }}
+            >
+              Block User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Call Screen Overlay */}
+      {chat && (
+        <CallScreen
+          participant={chat.participant}
+          isOpen={isCallOpen}
+          onClose={() => setIsCallOpen(false)}
+        />
+      )}
 
       <Dialog
         open={!!messageToForward}

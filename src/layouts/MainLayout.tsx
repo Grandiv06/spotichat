@@ -114,7 +114,7 @@ export function MainLayout() {
                   <Menu className="h-5 w-5" />
                 </Button>
               </div>
-              <div className="font-semibold text-lg tracking-tight select-none ">
+              <div className="font-semibold text-lg tracking-tight select-none">
                 SpotiChat
               </div>
               <div className="flex items-center gap-1">

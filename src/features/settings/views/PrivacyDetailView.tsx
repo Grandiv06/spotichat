@@ -23,7 +23,7 @@ export function PrivacyDetailView({
   description,
 }: PrivacyDetailViewProps) {
   const { navigate } = useSettingsStore();
-  const { phoneNumber, lastSeen, profilePhoto, setOption } =
+  const { phoneNumber, lastSeen, profilePhoto, setOption, setPickerContext } =
     usePrivacySettingsStore();
 
   const currentRule =
@@ -95,10 +95,11 @@ export function PrivacyDetailView({
                 ? 'Everybody except...'
                 : 'Only these contacts...'
             }
-            description="Tap to choose contacts (not implemented in mock)."
+            description="Tap to choose specific contacts."
             onClick={() => {
-              // In a full implementation this would open a contacts picker.
-              navigate('contacts');
+              const mode = currentRule.option === 'My Contacts' ? 'except' : 'allow';
+              setPickerContext(field, mode);
+              navigate('privacy-contacts-picker');
             }}
           />
         </SettingsSection>

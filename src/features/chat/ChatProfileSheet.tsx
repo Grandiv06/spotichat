@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Video, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import type { User } from '@/services/auth.service';
+import { usePrivacySettingsStore } from '@/features/settings/store/privacy.store';
 
 interface ChatProfileSheetProps {
   user: User | null;
@@ -22,6 +23,10 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showSharedMedia, setShowSharedMedia] = useState(false);
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
+
+  const { blockedUsers, setBlockedUsers } = usePrivacySettingsStore();
 
   // Mock data for photo gallery based on user
   const photos = user ? [
@@ -189,12 +194,18 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
               <Separator className="my-2" />
 
               {/* Danger Actions */}
-              <div className="px-5 py-3 flex items-center gap-4 hover:bg-destructive/10 text-destructive transition-colors cursor-pointer">
+              <div
+                className="px-5 py-3 flex items-center gap-4 hover:bg-destructive/10 text-destructive transition-colors cursor-pointer"
+                onClick={() => setIsBlockDialogOpen(true)}
+              >
                 <Ban className="h-5 w-5" />
                 <span className="text-[15px]">Block User</span>
               </div>
               
-              <div className="px-5 py-3 flex items-center gap-4 hover:bg-destructive/10 text-destructive transition-colors cursor-pointer">
+              <div
+                className="px-5 py-3 flex items-center gap-4 hover:bg-destructive/10 text-destructive transition-colors cursor-pointer"
+                onClick={() => setIsRemoveDialogOpen(true)}
+              >
                 <UserX className="h-5 w-5" />
                 <span className="text-[15px]">Remove Contact</span>
               </div>
@@ -280,6 +291,62 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
                 </div>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Block user confirm dialog */}
+      <Dialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogTitle>Block {user.name}?</DialogTitle>
+          <DialogDescription>
+            They will no longer be able to send you messages or call you. You
+            can unblock them later from Settings &gt; Privacy &amp; Security &gt;
+            Blocked Users.
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsBlockDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const existingIds = blockedUsers.map((u) => u.id);
+                if (!existingIds.includes(user.id)) {
+                  setBlockedUsers([...existingIds, user.id]);
+                }
+                setIsBlockDialogOpen(false);
+                onOpenChange(false);
+              }}
+            >
+              Block User
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove contact confirm dialog (UI only mock) */}
+      <Dialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogTitle>Remove {user.name} from contacts?</DialogTitle>
+          <DialogDescription>
+            This will remove the contact from your list but won&apos;t delete the
+            chat history.
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsRemoveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                // In a real app we would update the contacts store here.
+                setIsRemoveDialogOpen(false);
+                onOpenChange(false);
+              }}
+            >
+              Remove Contact
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

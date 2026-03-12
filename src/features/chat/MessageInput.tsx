@@ -11,11 +11,12 @@ interface MessageInputProps {
   replyingToMessage?: any; // Message type from service
   onCancelReply?: () => void;
   disabled?: boolean;
+  disabledPlaceholder?: string;
 }
 
 type RecordingState = 'idle' | 'holding' | 'locked';
 
-export function MessageInput({ onSend, replyingToMessage, onCancelReply, disabled }: MessageInputProps) {
+export function MessageInput({ onSend, replyingToMessage, onCancelReply, disabled, disabledPlaceholder }: MessageInputProps) {
   const [text, setText] = useState('');
   const [mediaType, setMediaType] = useState<'voice' | 'video'>('voice');
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
@@ -191,7 +192,7 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={disabled ? "Connecting..." : "Write a message..."}
+                placeholder={disabled ? (disabledPlaceholder || "Connecting...") : "Write a message..."}
                 className="w-full bg-transparent border-none outline-none resize-none max-h-32 text-[15px] placeholder:text-muted-foreground/70 disabled:opacity-50"
                 rows={1}
                 style={{ minHeight: '24px' }}

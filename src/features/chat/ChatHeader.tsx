@@ -17,11 +17,20 @@ import {
 interface ChatHeaderProps {
   participant: User;
   onToggleSearch?: () => void;
+  onStartCall?: () => void;
+  onBlockUser?: () => void;
 }
 
-export function ChatHeader({ participant, onToggleSearch }: ChatHeaderProps) {
+export function ChatHeader({
+  participant,
+  onToggleSearch,
+  onStartCall,
+  onBlockUser,
+}: ChatHeaderProps) {
   const { setSelectedChatId } = useChatStore();
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const isRestrictivePrivacyUser = participant.id === "u3";
 
   return (
     <>
@@ -42,13 +51,15 @@ export function ChatHeader({ participant, onToggleSearch }: ChatHeaderProps) {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <Avatar className="h-10 w-10">
-            <AvatarImage src={participant.avatar} />
+            <AvatarImage src={isRestrictivePrivacyUser ? undefined : participant.avatar} />
             <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col pl-2">
             <span className="font-semibold">{participant.name}</span>
             <span className="text-xs text-muted-foreground">
-              last seen recently
+              {isRestrictivePrivacyUser
+                ? "last seen a long time ago"
+                : "last seen recently"}
             </span>
           </div>
         </div>
@@ -65,7 +76,8 @@ export function ChatHeader({ participant, onToggleSearch }: ChatHeaderProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:text-foreground hidden sm:flex"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={onStartCall}
           >
             <Phone className="h-5 w-5" />
           </Button>
@@ -89,7 +101,10 @@ export function ChatHeader({ participant, onToggleSearch }: ChatHeaderProps) {
               <DropdownMenuItem>Mute Notifications</DropdownMenuItem>
               <DropdownMenuItem>Clear Chat</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive">
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={onBlockUser}
+              >
                 Block User
               </DropdownMenuItem>
               <DropdownMenuItem className="text-destructive focus:text-destructive">

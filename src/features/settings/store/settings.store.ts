@@ -9,6 +9,8 @@ export type SettingsView =
   | 'privacy-phone-number'
   | 'privacy-last-seen'
   | 'privacy-profile-photo'
+  | 'privacy-contacts-picker'
+  | 'privacy-blocked-users'
   | 'devices'
   | 'storage'
   | 'help'

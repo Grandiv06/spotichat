@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { mockedContacts } from '../mock/settings.mock';
 
 export type PrivacyScopeOption = 'Everybody' | 'My Contacts' | 'Nobody';
 
@@ -24,9 +25,16 @@ interface PrivacySettingsState {
   profilePhoto: PrivacyRule;
   blockedUsers: { id: string; name: string; username?: string }[];
 
+  // UI helpers for contacts picker
+  pickerField?: PrivacyField;
+  pickerMode?: 'except' | 'allow';
+
   setOption: (field: PrivacyField, option: PrivacyScopeOption) => void;
   setExceptContacts: (field: PrivacyField, contactIds: string[]) => void;
   setAllowContacts: (field: PrivacyField, contactIds: string[]) => void;
+  setPickerContext: (field: PrivacyField, mode: 'except' | 'allow') => void;
+  clearPickerContext: () => void;
+  setBlockedUsers: (contactIds: string[]) => void;
 }
 
 const defaultRule: PrivacyRule = {
@@ -51,6 +59,8 @@ export const usePrivacySettingsStore = create<PrivacySettingsState>((set) => ({
   blockedUsers: [
     { id: 'u12', name: 'John Doe', username: '@johnd' },
   ],
+  pickerField: undefined,
+  pickerMode: undefined,
 
   setOption: (field, option) =>
     set((state) => ({
@@ -78,5 +88,28 @@ export const usePrivacySettingsStore = create<PrivacySettingsState>((set) => ({
         allowContacts: contactIds,
       },
     })),
+  setPickerContext: (field, mode) =>
+    set(() => ({
+      pickerField: field,
+      pickerMode: mode,
+    })),
+  clearPickerContext: () =>
+    set(() => ({
+      pickerField: undefined,
+      pickerMode: undefined,
+    })),
+  setBlockedUsers: (contactIds) =>
+    set(() => {
+      const fromContacts = mockedContacts.filter((c) =>
+        contactIds.includes(c.id),
+      );
+      return {
+        blockedUsers: fromContacts.map((c) => ({
+          id: c.id,
+          name: c.name,
+          username: c.username,
+        })),
+      };
+    }),
 }));
 
