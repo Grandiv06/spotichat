@@ -291,14 +291,46 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
           {isLoading ? (
             <div className="flex flex-col gap-3">
-              {[1, 2, 3, 4].map((s) => (
-                <div key={s} className="flex w-full">
-                  <div className="flex flex-col max-w-[80%] animate-pulse gap-2">
-                    <div className="h-4 w-24 bg-muted rounded-full" />
-                    <div className="h-10 w-full bg-muted rounded-2xl" />
+              {[1, 2, 3, 4, 5].map((s, idx) => {
+                const isMeSkeleton = idx % 2 === 1;
+                return (
+                  <div
+                    key={s}
+                    className={cn(
+                      "flex w-full",
+                      isMeSkeleton ? "justify-end" : "justify-start",
+                    )}
+                  >
+                    <div className="flex flex-col max-w-[85%] sm:max-w-[75%] gap-2 animate-pulse">
+                      <div
+                        className={cn(
+                          "px-4 py-2 rounded-2xl shadow-sm",
+                          isMeSkeleton
+                            ? "bg-primary/40 rounded-br-sm"
+                            : "bg-card/60 border border-border/50 rounded-bl-sm",
+                        )}
+                      >
+                        <div className="h-3 w-16 bg-foreground/20 rounded-full mb-2" />
+                        <div className="h-4 w-32 bg-foreground/15 rounded-full mb-1" />
+                        <div className="h-4 w-20 bg-foreground/10 rounded-full" />
+                      </div>
+                      <div
+                        className={cn(
+                          "flex items-center gap-1 mt-1",
+                          isMeSkeleton
+                            ? "justify-end text-primary/60"
+                            : "justify-end text-muted-foreground/70",
+                        )}
+                      >
+                        <span className="h-3 w-8 bg-foreground/10 rounded-full" />
+                        {isMeSkeleton && (
+                          <span className="h-3 w-3 bg-foreground/15 rounded-full" />
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             messages.map((msg) => (

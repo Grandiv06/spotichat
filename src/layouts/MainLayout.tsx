@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import {
   Plus,
@@ -15,7 +15,6 @@ import { useChatStore } from "@/store/chat.store";
 import { ChatList } from "@/features/chat/ChatList";
 import { ModalProvider } from "@/features/modals/ModalProvider";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -23,9 +22,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Stories } from "@/features/chat/Stories";
 
 export function MainLayout() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [storiesCollapsed, setStoriesCollapsed] = useState(false);
   const {
     setAddContactOpen,
     setSearchOpen,
@@ -34,6 +35,55 @@ export function MainLayout() {
   } = useModalStore();
   const { setOpen: setSettingsOpen } = useSettingsStore();
   const { selectedChatId } = useChatStore();
+  const STORIES_HEIGHT = 120;
+  const COLLAPSE_SCROLL_THRESHOLD = 4;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const collapsedRef = useRef(storiesCollapsed);
+  const touchStartY = useRef(0);
+  const touchStartScrollTop = useRef(0);
+
+  collapsedRef.current = storiesCollapsed;
+
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    const top = target.scrollTop;
+
+    if (top > COLLAPSE_SCROLL_THRESHOLD && !storiesCollapsed) {
+      setStoriesCollapsed(true);
+    }
+  };
+
+  // Wheel با passive: false تا preventDefault کار کند و استوری دوباره باز شود
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      const atTop = el.scrollTop <= 0;
+      if (atTop && collapsedRef.current && e.deltaY < 0) {
+        e.preventDefault();
+        setStoriesCollapsed(false);
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.currentTarget;
+    touchStartScrollTop.current = target.scrollTop;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartScrollTop.current > 2 || !collapsedRef.current) return;
+    const currentY = e.touches[0].clientY;
+    const pullDown = currentY - touchStartY.current;
+    if (pullDown > 50) {
+      setStoriesCollapsed(false);
+    }
+  };
 
   return (
     <div className="flex h-[100dvh] w-full bg-background overflow-hidden relative">
@@ -46,7 +96,7 @@ export function MainLayout() {
           {!isSearchExpanded ? (
             // Collapsed State: Menu + Branding + Search Icon
             <div className="flex items-center justify-between w-full animate-in fade-in duration-200">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 justify-center ">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -63,11 +113,10 @@ export function MainLayout() {
                 >
                   <Menu className="h-5 w-5" />
                 </Button>
-                <div className="font-semibold text-lg tracking-tight select-none">
-                  SpotiChat
-                </div>
               </div>
-
+              <div className="font-semibold text-lg tracking-tight select-none ">
+                SpotiChat
+              </div>
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
@@ -106,14 +155,51 @@ export function MainLayout() {
           )}
         </div>
 
-        <div className="flex-1 w-full min-h-0 overflow-hidden flex flex-col">
-          <ScrollArea className="flex-1 w-full">
-            <ChatList />
-          </ScrollArea>
+        <div className="flex-1 w-full min-h-0 overflow-hidden flex flex-col relative">
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 w-full overflow-y-auto"
+            onScroll={handleScroll}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+          >
+            {/*
+              Stories behave like Telegram:
+              - Fully visible when at very top
+              - As soon as the user scrolls down a little, they collapse completely.
+            */}
+            {/*
+              We treat "any scroll > 4px" as collapsed for a snappy feel.
+            */}
+            {/*
+              Derive a simple boolean instead of partial collapse state.
+            */}
+            {/*
+              collapsed === true => height 0, opacity 0 (hidden)
+              collapsed === false => full height & opacity (visible)
+            */}
+            {/* Stories row */}
+            <div
+              className="px-2 pt-2 bg-sidebar text-sidebar-foreground"
+              style={{
+                height: storiesCollapsed ? 0 : STORIES_HEIGHT,
+                opacity: storiesCollapsed ? 0 : 1,
+                transition:
+                  "height 0.35s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.25s ease-out",
+                overflow: "hidden",
+              }}
+            >
+              <Stories />
+            </div>
+            {/* Chat list */}
+            <div>
+              <ChatList />
+            </div>
+          </div>
         </div>
 
         {/* Floating Action Button with Dropdown */}
-        <div className="absolute bottom-6 left-6 md:left-[18.5rem] lg:left-[19.5rem] z-30">
+        <div className="absolute bottom-6 right-6 md:left-[18.5rem] md:right-auto lg:left-[19.5rem] z-30">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
