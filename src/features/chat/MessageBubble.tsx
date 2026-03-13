@@ -150,11 +150,16 @@ export function MessageBubble({
           >
             <span className="text-[11px] leading-none">{time}</span>
             {isMe && (
-              <span className="ml-0.5 mt-0.5 inline-flex h-4 w-4 items-center justify-center relative overflow-hidden">
+              <span
+                className={cn(
+                  "ml-0.5 mt-0.5 inline-flex h-4 w-4 items-center justify-center relative overflow-hidden",
+                  message.status === "seen" && "text-blue-600 dark:text-blue-400",
+                )}
+              >
                 <Clock
                   className={cn(
                     "h-3.5 w-3.5 absolute transition-all duration-200",
-                    message.status === 'sending'
+                    message.status === "sending"
                       ? "opacity-100 translate-y-0"
                       : "opacity-0 -translate-y-1",
                   )}
@@ -162,7 +167,7 @@ export function MessageBubble({
                 <Check
                   className={cn(
                     "h-4 w-4 absolute transition-all duration-200",
-                    message.status === 'sent'
+                    message.status === "sent"
                       ? "opacity-100 translate-y-0"
                       : "opacity-0 translate-y-1",
                   )}
@@ -170,10 +175,9 @@ export function MessageBubble({
                 <CheckCheck
                   className={cn(
                     "h-4 w-4 absolute transition-all duration-200",
-                    (message.status === 'delivered' || message.status === 'seen')
+                    message.status === "delivered" || message.status === "seen"
                       ? "opacity-100 translate-y-0"
                       : "opacity-0 translate-y-1",
-                    message.status === 'seen' && "text-blue-500 dark:text-blue-400",
                   )}
                 />
               </span>

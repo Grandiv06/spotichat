@@ -100,6 +100,18 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
         const msgs = await chatService.getMessages(chatId);
         setMessages(msgs);
+
+        if (user) {
+          const fromOther = msgs.filter((m) => m.senderId !== user.id);
+          for (const m of fromOther) {
+            if (m.status === "sent") {
+              chatService.markDelivered(m.id);
+            }
+          }
+          for (const m of fromOther) {
+            chatService.markSeen(m.id);
+          }
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -108,7 +120,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     };
 
     loadChat();
-  }, [chatId]);
+  }, [chatId, user?.id]);
 
   // Subscribe to real-time WebSocket events for this chat
   useEffect(() => {
