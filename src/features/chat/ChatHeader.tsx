@@ -17,6 +17,7 @@ import {
 
 interface ChatHeaderProps {
   participant: User;
+  activity?: "typing" | "voice" | "video" | null;
   onToggleSearch?: () => void;
   onStartCall?: () => void;
   onBlockUser?: () => void;
@@ -24,6 +25,7 @@ interface ChatHeaderProps {
 
 export function ChatHeader({
   participant,
+  activity,
   onToggleSearch,
   onStartCall,
   onBlockUser,
@@ -98,12 +100,18 @@ export function ChatHeader({
             <span className="font-semibold">{participant.name}</span>
             <span
               className={
-                showOnline
+                showOnline || activity
                   ? "text-xs text-green-600 dark:text-green-400"
                   : "text-xs text-muted-foreground"
               }
             >
-              {isRestrictivePrivacyUser
+              {activity === "typing"
+                ? "typing..."
+                : activity === "voice"
+                ? "recording a voice message"
+                : activity === "video"
+                ? "recording a video message"
+                : isRestrictivePrivacyUser
                 ? "last seen a long time ago"
                 : lastSeenLabel()}
             </span>

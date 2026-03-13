@@ -1,12 +1,14 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Mic, Paperclip, Send, Video, Lock, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VoiceRecorderUI } from './VoiceRecorderUI';
 import { VideoRecorderUI } from './VideoRecorderUI';
 import { useMediaPermissions } from '@/hooks/useMediaPermissions';
 import { cn } from '@/lib/utils';
+import { chatService } from '@/services/chat.service';
 
 interface MessageInputProps {
+  chatId: string;
   onSend: (text?: string, type?: 'text' | 'voice' | 'video' | 'file', duration?: number) => void;
   replyingToMessage?: any; // Message type from service
   onCancelReply?: () => void;
@@ -16,7 +18,7 @@ interface MessageInputProps {
 
 type RecordingState = 'idle' | 'holding' | 'locked';
 
-export function MessageInput({ onSend, replyingToMessage, onCancelReply, disabled, disabledPlaceholder }: MessageInputProps) {
+export function MessageInput({ chatId, onSend, replyingToMessage, onCancelReply, disabled, disabledPlaceholder }: MessageInputProps) {
   const [text, setText] = useState('');
   const [mediaType, setMediaType] = useState<'voice' | 'video'>('voice');
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
@@ -29,11 +31,32 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
   const recordingStartTime = useRef<number>(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const isTypingRef = useRef(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentTypingKindRef = useRef<"text" | "voice" | "video">("text");
+
+  const clearTypingState = (chatIdToStop?: string) => {
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+    }
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    const cid = chatIdToStop ?? chatId;
+    if (isTypingRef.current && cid) {
+      chatService.stopTyping(cid);
+      isTypingRef.current = false;
+    }
+  };
 
   const handleSendText = () => {
     if (text.trim()) {
       onSend(text.trim(), 'text');
       setText('');
+      clearTypingState();
     }
   };
 
@@ -48,6 +71,7 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
     recordingStartTime.current = 0;
     stopAudio();
     stopVideo();
+    clearTypingState();
   };
 
   const cancelRecording = () => {
@@ -55,6 +79,7 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
     recordingStartTime.current = 0;
     stopAudio();
     stopVideo();
+    clearTypingState();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -66,6 +91,31 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
 
   const toggleMediaType = () => {
     setMediaType(prev => prev === 'voice' ? 'video' : 'voice');
+  };
+
+  // Emit typing/recording status. Heartbeat every 2s so the other side keeps showing it until we stop.
+  const notifyTyping = (kind: "text" | "voice" | "video" = "text") => {
+    if (!chatId) return;
+    currentTypingKindRef.current = kind;
+
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      chatService.startTyping(chatId, kind);
+      // Keep sending every 2s so receiver doesn't clear the indicator
+      typingIntervalRef.current = setInterval(() => {
+        if (isTypingRef.current && chatId) {
+          chatService.startTyping(chatId, currentTypingKindRef.current);
+        }
+      }, 2000);
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    // Only auto-stop after pause for text; voice/video stop on send/cancel
+    if (kind === "text") {
+      typingTimeoutRef.current = setTimeout(() => {
+        clearTypingState();
+      }, 3000);
+    }
   };
 
   // --- Interaction Logic (Touch & Mouse unified) ---
@@ -86,6 +136,8 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
       if (stream) {
         recordingStartTime.current = Date.now();
         setRecordingState('holding');
+        // indicate recording activity to the other side
+        notifyTyping(mediaType === "voice" ? "voice" : "video");
       }
     }, 300); // 300ms to differentiate click from hold
   };
@@ -145,6 +197,12 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
     }
   };
 
+  // Cleanup typing state on unmount or chatId change (stop for the chat we're leaving)
+  useEffect(() => {
+    const cid = chatId;
+    return () => clearTypingState(cid);
+  }, [chatId]);
+
   return (
     <div className="flex flex-col bg-background border-t border-border transition-all w-full relative">
       {/* Reply Preview Banner */}
@@ -190,7 +248,16 @@ export function MessageInput({ onSend, replyingToMessage, onCancelReply, disable
               <textarea
                 ref={inputRef}
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  if (!disabled) {
+                    if (e.target.value.trim()) {
+                      notifyTyping();
+                    } else {
+                      clearTypingState();
+                    }
+                  }
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder={disabled ? (disabledPlaceholder || "Connecting...") : "Write a message..."}
                 className="w-full bg-transparent border-none outline-none resize-none max-h-32 text-[15px] placeholder:text-muted-foreground/70 disabled:opacity-50"

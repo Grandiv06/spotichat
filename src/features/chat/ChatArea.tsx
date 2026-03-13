@@ -54,6 +54,12 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const [pinnedMessage, setPinnedMessage] = useState<Message | null>(null);
   const [isCallOpen, setIsCallOpen] = useState(false);
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+  const [otherActivity, setOtherActivity] = useState<
+    "typing" | "voice" | "video" | null
+  >(null);
+  const otherTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const { blockedUsers, setBlockedUsers } = usePrivacySettingsStore();
 
@@ -129,6 +135,15 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     initialScrollDoneRef.current = false;
   }, [chatId]);
 
+  // Join chat room so we receive typing/status events from the other user
+  useEffect(() => {
+    if (!chatId) return;
+    chatService.joinChat(chatId);
+    return () => {
+      chatService.leaveChat(chatId);
+    };
+  }, [chatId]);
+
   // Subscribe to real-time WebSocket events for this chat
   useEffect(() => {
     const unsubMessage = chatService.onNewMessage((message) => {
@@ -175,6 +190,46 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     return () => {
       unsubMessage();
       unsubStatus();
+    };
+  }, [chatId, user?.id]);
+
+  // Listen for typing / recording events from the other user (Telegram-style).
+  // Each typing:start resets the hide timer so the indicator stays while they keep sending heartbeats.
+  useEffect(() => {
+    const HIDE_AFTER_MS = 5500; // Slightly longer than sender's 2s heartbeat so it doesn't flicker
+
+    const unsubStart = chatService.onTypingStart(
+      ({ chatId: cid, userId, kind }) => {
+        if (cid !== chatId || userId === user?.id) return;
+        const mapped: "typing" | "voice" | "video" =
+          kind === "voice" ? "voice" : kind === "video" ? "video" : "typing";
+        setOtherActivity(mapped);
+        if (otherTypingTimeoutRef.current) clearTimeout(otherTypingTimeoutRef.current);
+        otherTypingTimeoutRef.current = setTimeout(() => {
+          setOtherActivity(null);
+          otherTypingTimeoutRef.current = null;
+        }, HIDE_AFTER_MS);
+      },
+    );
+
+    const unsubStop = chatService.onTypingStop(
+      ({ chatId: cid, userId }) => {
+        if (cid !== chatId || userId === user?.id) return;
+        setOtherActivity(null);
+        if (otherTypingTimeoutRef.current) {
+          clearTimeout(otherTypingTimeoutRef.current);
+          otherTypingTimeoutRef.current = null;
+        }
+      },
+    );
+
+    return () => {
+      unsubStart();
+      unsubStop();
+      if (otherTypingTimeoutRef.current) {
+        clearTimeout(otherTypingTimeoutRef.current);
+        otherTypingTimeoutRef.current = null;
+      }
     };
   }, [chatId, user?.id]);
 
@@ -361,6 +416,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       {chat ? (
         <ChatHeader
           participant={chat.participant}
+          activity={otherActivity}
           onToggleSearch={() => setIsSearching(true)}
           onStartCall={() => setIsCallOpen(true)}
           onBlockUser={() => setIsBlockDialogOpen(true)}
@@ -549,6 +605,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       </div>
 
       <MessageInput
+        chatId={chatId}
         onSend={handleSend}
         replyingToMessage={replyingToMessage}
         onCancelReply={() => setReplyingToMessage(null)}

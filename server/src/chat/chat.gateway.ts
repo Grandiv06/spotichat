@@ -156,7 +156,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('typing:start')
   handleTypingStart(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { chatId: string },
+    @MessageBody() data: { chatId: string; kind?: string },
   ) {
     const userId = (client as any).userId;
     if (!userId) return;
@@ -164,6 +164,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.to(`chat:${data.chatId}`).emit('typing:start', {
       chatId: data.chatId,
       userId,
+      kind: data.kind || 'text',
     });
   }
 
