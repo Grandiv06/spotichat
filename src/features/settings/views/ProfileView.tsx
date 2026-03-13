@@ -173,9 +173,9 @@ export function ProfileView() {
         </SettingsSection>
         
         <div className="mt-6 flex justify-center">
-           <Button onClick={() => setIsEditing(true)} className="w-[80%]" variant="outline">
-              Edit Profile
-           </Button>
+          <Button onClick={() => setIsEditing(true)} className="w-[80%]" variant="outline">
+            Edit Profile
+          </Button>
         </div>
       </div>
     </div>

@@ -1,12 +1,17 @@
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useModalStore } from '@/store/modal.store';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Check, Camera, Globe, Lock } from 'lucide-react';
+import { useEffect, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useModalStore } from "@/store/modal.store";
+import { Camera, Globe, Lock } from "lucide-react";
+import { channelService } from "@/services/channel.service";
+import type { ChannelVisibility } from "@/services/channel.service";
 
 export function CreateChannelModal() {
   const { isCreateChannelOpen, setCreateChannelOpen } = useModalStore();
@@ -15,37 +20,59 @@ export function CreateChannelModal() {
   // Step 1
   const [channelName, setChannelName] = useState('');
   const [description, setDescription] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState<
+    "idle" | "checking" | "available" | "taken" | "error"
+  >("idle");
   
   // Step 2
   const [isPrivate, setIsPrivate] = useState(false);
   
-  // Step 3
-  const [selectedContacts, setSelectedContacts] = useState<number[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock Contacts for Selection
-  const mockContacts = Array.from({ length: 15 }).map((_, i) => ({
-    id: i + 1,
-    name: `User ${i + 1}`,
-    phone: `+1 555 010${i}`,
-    avatar: `https://i.pravatar.cc/150?u=${i + 20}`
-  }));
+  // Debounced username availability check
+  useEffect(() => {
+    if (!username.trim()) {
+      setUsernameStatus("idle");
+      return;
+    }
+    setUsernameStatus("checking");
+    const handle = setTimeout(async () => {
+      try {
+        const res = await channelService.checkUsernameAvailable(username.trim());
+        setUsernameStatus(res.available ? "available" : "taken");
+      } catch {
+        setUsernameStatus("error");
+      }
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [username]);
 
-  const toggleContact = (id: number) => {
-    setSelectedContacts(prev => 
-      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
-    );
-  };
-
-  const handleCreate = () => {
-    console.log('Channel Created:', { name: channelName, description, isPrivate, subscribers: selectedContacts });
-    
-    // Reset and close
-    setChannelName('');
-    setDescription('');
-    setIsPrivate(false);
-    setSelectedContacts([]);
-    setStep(1);
-    setCreateChannelOpen(false);
+  const handleCreate = async () => {
+    if (!channelName.trim() || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const visibility: ChannelVisibility = isPrivate ? "private" : "public";
+      await channelService.createChannel({
+        name: channelName.trim(),
+        description: description.trim() || undefined,
+        visibility,
+        username: username.trim() || undefined,
+        initialSubscriberIds: [], // TODO: map from selectedContacts to real userIds
+      });
+      // Reset and close
+      setChannelName("");
+      setDescription("");
+      setUsername("");
+      setUsernameStatus("idle");
+      setIsPrivate(false);
+      setStep(1);
+      setCreateChannelOpen(false);
+    } catch (e) {
+      console.error("Failed to create channel", e);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   const handleOpenChange = (open: boolean) => {
@@ -53,6 +80,8 @@ export function CreateChannelModal() {
       setStep(1);
       setChannelName('');
       setDescription('');
+      setUsername('');
+      setUsernameStatus("idle");
       setIsPrivate(false);
       setSelectedContacts([]);
     }
@@ -60,9 +89,9 @@ export function CreateChannelModal() {
   };
 
   const getTitle = () => {
-    if (step === 1) return 'New Channel';
-    if (step === 2) return 'Channel Type';
-    return 'Add Subscribers';
+    if (step === 1) return "New Channel";
+    if (step === 2) return "Channel Type";
+    return "Confirm";
   };
 
   return (
@@ -95,6 +124,36 @@ export function CreateChannelModal() {
                 placeholder="Description (optional)" 
                 className="text-center text-sm border-x-0 border-t-0 rounded-none border-b border-muted focus-visible:border-primary focus-visible:ring-0 px-0 h-8 bg-transparent w-full shadow-none"
               />
+            </div>
+
+            {/* Public username (Telegram-style) */}
+            <div className="space-y-2">
+              <Label htmlFor="channelUsername" className="text-xs text-muted-foreground">
+                Public link (optional)
+              </Label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground select-none">
+                  t.me/
+                </span>
+                <Input
+                  id="channelUsername"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""));
+                    setUsernameStatus("idle");
+                  }}
+                  placeholder="channel_username"
+                  className="h-9 text-sm"
+                />
+              </div>
+              {username && (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  {usernameStatus === "checking" && "Checking availability..."}
+                  {usernameStatus === "available" && "This link is available."}
+                  {usernameStatus === "taken" && "This link is already taken."}
+                  {usernameStatus === "error" && "Could not check username right now."}
+                </p>
+              )}
             </div>
             
             <div className="flex-1" />
@@ -148,41 +207,47 @@ export function CreateChannelModal() {
 
         {step === 3 && (
           <div className="flex flex-col h-[50dvh] sm:h-[400px]">
-             <div className="p-3 border-b border-border/50 text-sm text-muted-foreground font-medium bg-muted/30">
-              {selectedContacts.length} subscribers selected
-            </div>
-            
-            <ScrollArea className="flex-1 w-full">
-              <div className="flex flex-col py-2">
-                {mockContacts.map(contact => (
-                  <div 
-                    key={contact.id} 
-                    className="flex items-center gap-3 px-4 py-2 hover:bg-accent/50 cursor-pointer transition-colors"
-                    onClick={() => toggleContact(contact.id)}
-                  >
-                    <div className="relative shrink-0">
-                      <Avatar className="h-11 w-11 shrink-0">
-                        <AvatarImage src={contact.avatar} />
-                        <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      {selectedContacts.includes(contact.id) && (
-                        <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5 border-2 border-background">
-                          <Check className="h-3 w-3" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col flex-1 truncate">
-                      <span className="font-medium text-sm truncate">{contact.name}</span>
-                      <span className="text-xs text-muted-foreground truncate">last seen recently</span>
-                    </div>
+            <div className="p-5 space-y-3 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">Create channel</p>
+              <div className="space-y-1 text-xs sm:text-sm">
+                <div>
+                  <span className="font-semibold text-foreground">Name: </span>
+                  <span>{channelName || "-"}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-foreground">Type: </span>
+                  <span>{isPrivate ? "Private channel" : "Public channel"}</span>
+                </div>
+                {username && (
+                  <div>
+                    <span className="font-semibold text-foreground">Link: </span>
+                    <span>t.me/{username}</span>
                   </div>
-                ))}
+                )}
               </div>
-            </ScrollArea>
-            
+              <p className="text-[11px] sm:text-xs">
+                You can add subscribers and admins later from the channel info screen. For now
+                the channel will be created and only you will be inside it.
+              </p>
+            </div>
+
+            <div className="flex-1" />
+
             <div className="p-4 border-t bg-muted/10 flex justify-between items-center w-full">
-              <Button variant="ghost" onClick={() => setStep(2)} className="rounded-full">Back</Button>
-              <Button onClick={handleCreate} className="rounded-full px-6">Create</Button>
+              <Button
+                variant="ghost"
+                onClick={() => setStep(2)}
+                className="rounded-full"
+              >
+                Back
+              </Button>
+              <Button
+                onClick={handleCreate}
+                className="rounded-full px-6"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Creating..." : "Create"}
+              </Button>
             </div>
           </div>
         )}
