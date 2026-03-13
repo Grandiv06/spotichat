@@ -7,9 +7,11 @@ import { NotificationSettings, NotificationSettingsSchema } from '../common/sche
 import { BlockedUser, BlockedUserSchema } from '../common/schemas/blocked-user.schema';
 import { User, UserSchema } from '../common/schemas/user.schema';
 import { Session, SessionSchema } from '../common/schemas/session.schema';
+import { ChatModule } from '../chat/chat.module';
 
 @Module({
   imports: [
+    ChatModule,
     MongooseModule.forFeature([
       { name: PrivacySettings.name, schema: PrivacySettingsSchema },
       { name: NotificationSettings.name, schema: NotificationSettingsSchema },

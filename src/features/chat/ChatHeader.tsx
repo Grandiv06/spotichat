@@ -19,6 +19,8 @@ interface ChatHeaderProps {
   participant: User;
   activity?: "typing" | "voice" | "video" | null;
   isBlockedByMe?: boolean;
+  /** True when this participant has blocked the current user (hide profile, show "last seen a long time ago") */
+  isBlockedByThem?: boolean;
   onToggleSearch?: () => void;
   onStartCall?: () => void;
   onBlockUser?: () => void;
@@ -29,6 +31,7 @@ export function ChatHeader({
   participant,
   activity,
   isBlockedByMe,
+  isBlockedByThem,
   onToggleSearch,
   onStartCall,
   onBlockUser,
@@ -38,8 +41,7 @@ export function ChatHeader({
   const { isOnline } = useOnlineStore();
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const isRestrictivePrivacyUser = participant.id === "u3";
-  const showOnline = isOnline(participant.id);
+  const showOnline = !isBlockedByThem && isOnline(participant.id);
 
   const lastSeenLabel = (): string => {
     if (showOnline) return "online";
@@ -89,7 +91,7 @@ export function ChatHeader({
           <div className="relative">
             <Avatar className="h-10 w-10">
               <AvatarImage
-                src={isRestrictivePrivacyUser ? undefined : participant.avatar}
+                src={isBlockedByThem ? undefined : participant.avatar}
               />
               <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
             </Avatar>
@@ -115,7 +117,7 @@ export function ChatHeader({
                 ? "recording a voice message"
                 : activity === "video"
                 ? "recording a video message"
-                : isRestrictivePrivacyUser
+                : isBlockedByThem
                 ? "last seen a long time ago"
                 : lastSeenLabel()}
             </span>

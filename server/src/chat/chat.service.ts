@@ -24,10 +24,28 @@ export class ChatService {
       .populate('participants')
       .populate('lastMessage');
 
+    const myId = new Types.ObjectId(userId);
+    const otherParticipantIds = chats
+      .map((chat) => {
+        const p = (chat.participants as any[]).find((x) => x._id.toString() !== userId);
+        return p?._id;
+      })
+      .filter(Boolean);
+    const blockedMeSet = new Set<string>();
+    if (otherParticipantIds.length > 0) {
+      const rows = await this.blockedUserModel.find({
+        userId: { $in: otherParticipantIds },
+        blockedUserId: myId,
+      });
+      rows.forEach((r) => blockedMeSet.add((r.userId as Types.ObjectId).toString()));
+    }
+
     return chats.map((chat) => {
       const participant = (chat.participants as any[]).find(
         (p) => p._id.toString() !== userId,
       );
+      const participantId = participant?._id?.toString();
+      const blockedByThem = participantId ? blockedMeSet.has(participantId) : false;
       const lastMsg = chat.lastMessage as any;
 
       let lastMessageText: string | undefined;
@@ -68,6 +86,7 @@ export class ChatService {
           : undefined,
         unreadCount: 0, // TODO: implement unread counting
         type: chat.type,
+        blockedByThem,
       };
     });
   }

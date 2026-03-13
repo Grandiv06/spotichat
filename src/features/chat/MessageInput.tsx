@@ -240,7 +240,12 @@ export function MessageInput({ chatId, onSend, replyingToMessage, onCancelReply,
       {/* Left Side: TextField OR Recording Interface */}
       {recordingState === 'idle' ? (
         <>
-          <Button variant="ghost" size="icon" className="text-muted-foreground h-11 w-11 flex-shrink-0 rounded-full hover:bg-accent hover:text-foreground">
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            className="text-muted-foreground h-11 w-11 flex-shrink-0 rounded-full hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:pointer-events-none"
+          >
             <Paperclip className="h-5 w-5" />
           </Button>
           

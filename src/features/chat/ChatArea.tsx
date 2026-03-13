@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { playSendSound } from "@/lib/sounds";
 import { CallScreen } from "@/features/call/CallScreen";
 import { usePrivacySettingsStore } from "@/features/settings/store/privacy.store";
+import { settingsService } from "@/services/settings.service";
 import {
   Dialog,
   DialogContent,
@@ -61,7 +62,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     null,
   );
 
-  const { blockedUserIds, setBlockedUsers } = usePrivacySettingsStore();
+  const { blockedUserIds, blockedByUserIds, setBlockedUsers, addBlockedByUser } =
+    usePrivacySettingsStore();
 
   // Matches (reversed so index 0 is the newest match)
   const matchedMessages = messages
@@ -108,6 +110,10 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         }
 
         if (currentChat) setChat(currentChat);
+        const addBlockedByUser = usePrivacySettingsStore.getState().addBlockedByUser;
+        chats.forEach((c) => {
+          if (c.blockedByThem && c.participant?.id) addBlockedByUser(c.participant.id);
+        });
 
         const msgs = await chatService.getMessages(chatId);
         setMessages(msgs);
@@ -274,8 +280,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
 
   const isRestrictedByOther = useMemo(
-    () => chat?.participant.id === "u3",
-    [chat],
+    () => !!(chat && blockedByUserIds.includes(chat.participant.id)),
+    [chat, blockedByUserIds],
   );
 
   const isBlockedByMe = useMemo(
@@ -355,8 +361,13 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       });
 
       updateLastMessage(chatId, sentMsg);
-    } catch (e) {
-      console.error(e);
+    } catch (e: unknown) {
+      const err = e as { message?: string; status?: number };
+      const msg = String(err?.message ?? "").toLowerCase();
+      const isBlocked = err?.status === 403 || msg.includes("blocked");
+      if (isBlocked && chat) {
+        addBlockedByUser(chat.participant.id);
+      }
       // Revert optimistic update on failure
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
@@ -415,12 +426,18 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           participant={chat.participant}
           activity={otherActivity}
           isBlockedByMe={isBlockedByMe}
+          isBlockedByThem={isRestrictedByOther}
           onToggleSearch={() => setIsSearching(true)}
           onStartCall={() => setIsCallOpen(true)}
           onBlockUser={() => setIsBlockDialogOpen(true)}
-          onUnblockUser={() =>
-            setBlockedUsers(blockedUserIds.filter((id) => id !== chat.participant.id))
-          }
+          onUnblockUser={async () => {
+            try {
+              await settingsService.unblockUser(chat.participant.id);
+              setBlockedUsers(blockedUserIds.filter((id) => id !== chat.participant.id));
+            } catch {
+              // keep state on error
+            }
+          }}
         />
       ) : (
         <div className="h-16 border-b bg-card flex items-center px-4 animate-pulse">
@@ -613,9 +630,14 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() =>
-              setBlockedUsers(blockedUserIds.filter((id) => id !== chat.participant.id))
-            }
+            onClick={async () => {
+              try {
+                await settingsService.unblockUser(chat.participant.id);
+                setBlockedUsers(blockedUserIds.filter((id) => id !== chat.participant.id));
+              } catch {
+                // keep state on error
+              }
+            }}
           >
             Unblock
           </Button>
@@ -685,10 +707,15 @@ export function ChatArea({ chatId }: ChatAreaProps) {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
+              onClick={async () => {
                 if (!chat) return;
-                if (!blockedUserIds.includes(chat.participant.id)) {
-                  setBlockedUsers([...blockedUserIds, chat.participant.id]);
+                try {
+                  await settingsService.blockUser(chat.participant.id);
+                  if (!blockedUserIds.includes(chat.participant.id)) {
+                    setBlockedUsers([...blockedUserIds, chat.participant.id]);
+                  }
+                } catch {
+                  // keep dialog open on error
                 }
                 setIsBlockDialogOpen(false);
               }}

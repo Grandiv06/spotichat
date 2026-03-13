@@ -30,6 +30,6 @@ import { EncryptionService } from '../common/encryption.service';
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway, OnlineUsersService, EncryptionService],
-  exports: [ChatService, OnlineUsersService],
+  exports: [ChatService, ChatGateway, OnlineUsersService],
 })
 export class ChatModule {}

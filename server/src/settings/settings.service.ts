@@ -6,6 +6,7 @@ import { NotificationSettings, NotificationSettingsDocument } from '../common/sc
 import { BlockedUser, BlockedUserDocument } from '../common/schemas/blocked-user.schema';
 import { User, UserDocument } from '../common/schemas/user.schema';
 import { Session, SessionDocument } from '../common/schemas/session.schema';
+import { ChatGateway } from '../chat/chat.gateway';
 
 @Injectable()
 export class SettingsService {
@@ -15,6 +16,7 @@ export class SettingsService {
     @InjectModel(BlockedUser.name) private blockedModel: Model<BlockedUserDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
+    private chatGateway: ChatGateway,
   ) {}
 
   // ── Privacy ──
@@ -103,6 +105,15 @@ export class SettingsService {
       userId: new Types.ObjectId(userId),
       blockedUserId: new Types.ObjectId(targetUserId),
     });
+
+    // Notify the blocked user in real time so they see "You can't send messages" immediately
+    try {
+      this.chatGateway.server
+        .to(`user:${targetUserId}`)
+        .emit('user:blocked-you', { byUserId: userId });
+    } catch {
+      // ignore emit errors
+    }
 
     return { success: true };
   }

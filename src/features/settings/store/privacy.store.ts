@@ -22,7 +22,10 @@ interface PrivacySettingsState {
   phoneNumber: PrivacyRule;
   lastSeen: PrivacyRule;
   profilePhoto: PrivacyRule;
+  /** User IDs that I have blocked */
   blockedUserIds: string[];
+  /** User IDs that have blocked me (so I cannot send them messages) */
+  blockedByUserIds: string[];
 
   // UI helpers for contacts picker
   pickerField?: PrivacyField;
@@ -34,6 +37,7 @@ interface PrivacySettingsState {
   setPickerContext: (field: PrivacyField, mode: 'except' | 'allow') => void;
   clearPickerContext: () => void;
   setBlockedUsers: (contactIds: string[]) => void;
+  addBlockedByUser: (userId: string) => void;
 }
 
 const defaultRule: PrivacyRule = {
@@ -56,6 +60,7 @@ export const usePrivacySettingsStore = create<PrivacySettingsState>((set) => ({
     option: 'My Contacts',
   },
   blockedUserIds: [],
+  blockedByUserIds: [],
   pickerField: undefined,
   pickerMode: undefined,
 
@@ -97,5 +102,11 @@ export const usePrivacySettingsStore = create<PrivacySettingsState>((set) => ({
     })),
   setBlockedUsers: (contactIds) =>
     set(() => ({ blockedUserIds: contactIds })),
+  addBlockedByUser: (userId) =>
+    set((state) =>
+      state.blockedByUserIds.includes(userId)
+        ? state
+        : { blockedByUserIds: [...state.blockedByUserIds, userId] }
+    ),
 }));
 

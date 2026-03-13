@@ -15,11 +15,13 @@ import { useChatStore } from "@/store/chat.store";
 import { useChatsStore } from "@/store/chats.store";
 import { useAuthStore } from "@/store/auth.store";
 import { useConnectionStatusStore } from "@/store/connection-status.store";
-import { connectSocket, getSocket } from "@/lib/socket";
+import { connectSocket, getSocket, onSocketEvent } from "@/lib/socket";
 import { chatService } from "@/services/chat.service";
 
 import { apiFetch } from "@/lib/api";
 import { contactService } from "@/services/contact.service";
+import { settingsService } from "@/services/settings.service";
+import { usePrivacySettingsStore } from "@/features/settings/store/privacy.store";
 import { useOnlineStore } from "@/store/online.store";
 import { useMessageStatusStore } from "@/store/message-status.store";
 import { ChatList } from "@/features/chat/ChatList";
@@ -119,6 +121,31 @@ export function MainLayout() {
       unsubOnline();
       unsubOffline();
       unsubStatus();
+    };
+  }, [isAuthenticated]);
+
+  // Load blocked users from server and subscribe to "you were blocked" real-time event
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const { setBlockedUsers, addBlockedByUser } = usePrivacySettingsStore.getState();
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await settingsService.getBlockedUsers();
+        if (cancelled) return;
+        if (Array.isArray(list)) {
+          setBlockedUsers(list.map((u) => u.id));
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    const unsub = onSocketEvent("user:blocked-you", (data: { byUserId?: string }) => {
+      if (data?.byUserId) addBlockedByUser(data.byUserId);
+    });
+    return () => {
+      cancelled = true;
+      unsub();
     };
   }, [isAuthenticated]);
 

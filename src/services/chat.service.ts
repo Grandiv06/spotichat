@@ -21,6 +21,8 @@ export interface Chat {
   participant: User;
   lastMessage?: Message;
   unreadCount: number;
+  /** True when the other participant has blocked the current user (so we cannot send messages) */
+  blockedByThem?: boolean;
 }
 
 export interface Story {
@@ -116,8 +118,14 @@ export const chatService = {
       if (result?.success && result.message) {
         return result.message;
       }
-    } catch {
-      // Fall through to REST
+      if (result?.success === false && result?.error) {
+        const err = new Error(result.error) as Error & { status?: number };
+        err.status = 403;
+        throw err;
+      }
+    } catch (e) {
+      if (e instanceof Error && (e as Error & { status?: number }).status === 403) throw e;
+      // Fall through to REST for other errors
     }
 
     return restFallback();

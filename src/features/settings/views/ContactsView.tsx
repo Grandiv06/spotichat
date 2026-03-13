@@ -3,13 +3,15 @@ import { SettingsSection } from '../components/SettingsSection';
 import { SettingsRow } from '../components/SettingsRow';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Search, UserPlus, MoreVertical } from 'lucide-react';
+import { Search, UserPlus, MoreVertical, Ban, UserX } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { contactService } from '@/services/contact.service';
+import { settingsService } from '@/services/settings.service';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -17,7 +19,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
+import { usePrivacySettingsStore } from '../store/privacy.store';
 import { Label } from '@/components/ui/label';
 
 export type ContactItem = {
@@ -31,11 +36,14 @@ export type ContactItem = {
 };
 
 export function ContactsView() {
+  const { blockedUserIds, setBlockedUsers } = usePrivacySettingsStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [contacts, setContacts] = useState<ContactItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewContact, setViewContact] = useState<ContactItem | null>(null);
   const [editContact, setEditContact] = useState<ContactItem | null>(null);
+  const [blockTarget, setBlockTarget] = useState<ContactItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ContactItem | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [formState, setFormState] = useState<{ name: string; phone: string }>({
     name: '',
@@ -193,6 +201,27 @@ export function ContactsView() {
                       >
                         Edit Contact
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setBlockTarget(contact);
+                        }}
+                      >
+                        <Ban className="h-4 w-4 mr-2" />
+                        Block User
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(contact);
+                        }}
+                      >
+                        <UserX className="h-4 w-4 mr-2" />
+                        Delete User
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 }
@@ -299,6 +328,73 @@ export function ContactsView() {
               Save
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Block user confirmation */}
+      <Dialog open={!!blockTarget} onOpenChange={(open) => !open && setBlockTarget(null)}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Block {blockTarget?.name}?</DialogTitle>
+            <DialogDescription>
+              They will no longer be able to send you messages or call you. You can unblock them
+              later from Settings &gt; Privacy &amp; Security &gt; Blocked Users.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2 mt-4">
+            <Button variant="outline" onClick={() => setBlockTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!blockTarget) return;
+                try {
+                  await settingsService.blockUser(blockTarget.contactId);
+                  if (!blockedUserIds.includes(blockTarget.contactId)) {
+                    setBlockedUsers([...blockedUserIds, blockTarget.contactId]);
+                  }
+                } catch {
+                  // keep dialog open on error
+                }
+                setBlockTarget(null);
+              }}
+            >
+              Block User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete user / Remove contact confirmation */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Delete {deleteTarget?.name} from contacts?</DialogTitle>
+            <DialogDescription>
+              This will remove them from your contact list. Your chat history will not be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!deleteTarget) return;
+                try {
+                  await contactService.removeContact(deleteTarget.id);
+                  setContacts((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+                  setDeleteTarget(null);
+                } catch {
+                  // keep modal open on error
+                }
+              }}
+            >
+              Delete User
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

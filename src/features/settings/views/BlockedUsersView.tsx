@@ -8,6 +8,7 @@ import { usePrivacySettingsStore } from '../store/privacy.store';
 import { useSettingsStore } from '../store/settings.store';
 import { Ban, Check } from 'lucide-react';
 import { contactService } from '@/services/contact.service';
+import { settingsService } from '@/services/settings.service';
 
 export function BlockedUsersView() {
   const { blockedUserIds, setBlockedUsers } = usePrivacySettingsStore();
@@ -64,9 +65,21 @@ export function BlockedUsersView() {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const ids = Array.from(selected);
-    setBlockedUsers(ids);
+    const prev = blockedUserIds;
+    const toBlock = ids.filter((id) => !prev.includes(id));
+    const toUnblock = prev.filter((id) => !ids.includes(id));
+    try {
+      await Promise.all([
+        ...toBlock.map((id) => settingsService.blockUser(id)),
+        ...toUnblock.map((id) => settingsService.unblockUser(id)),
+      ]);
+      setBlockedUsers(ids);
+    } catch {
+      // keep on error, don't navigate
+      return;
+    }
     goBack();
   };
 

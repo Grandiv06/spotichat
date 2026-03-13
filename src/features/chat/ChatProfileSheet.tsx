@@ -1,7 +1,7 @@
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Bell, ImageIcon, Phone, Ban, UserX, Info } from 'lucide-react';
+import { Bell, ImageIcon, Phone, Ban, UserX, UserPlus, Info } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -10,6 +10,8 @@ import { Video, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import type { User } from '@/services/auth.service';
 import { usePrivacySettingsStore } from '@/features/settings/store/privacy.store';
+import { contactService } from '@/services/contact.service';
+import { settingsService } from '@/services/settings.service';
 
 interface ChatProfileSheetProps {
   user: User | null;
@@ -25,8 +27,39 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
   const [showSharedMedia, setShowSharedMedia] = useState(false);
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
+  const [isInContacts, setIsInContacts] = useState<boolean | null>(null);
+  const [contactRecordId, setContactRecordId] = useState<string | null>(null);
+  const [isAddContactLoading, setIsAddContactLoading] = useState(false);
 
-  const { blockedUserIds, setBlockedUsers } = usePrivacySettingsStore();
+  const { blockedUserIds, blockedByUserIds, setBlockedUsers } = usePrivacySettingsStore();
+  const hasBlockedMe = user ? blockedByUserIds.includes(user.id) : false;
+
+  // Resolve whether this user is in our contacts (for Remove vs Add to contacts)
+  useEffect(() => {
+    if (!user?.id || !isOpen) {
+      setIsInContacts(null);
+      setContactRecordId(null);
+      return;
+    }
+    let mounted = true;
+    contactService
+      .getContacts()
+      .then((list) => {
+        if (!mounted || !Array.isArray(list)) return;
+        const contact = list.find((c: { contactId?: string }) => c.contactId === user.id);
+        setIsInContacts(!!contact);
+        setContactRecordId(contact ? (contact as { id: string }).id : null);
+      })
+      .catch(() => {
+        if (mounted) {
+          setIsInContacts(false);
+          setContactRecordId(null);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id, isOpen]);
 
   // Mock data for photo gallery based on user
   const photos = user ? [
@@ -99,11 +132,11 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
                style={{
                  width: `${avatarSize}px`,
                  height: `${avatarSize}px`,
-                 borderRadius: `${30 + scrollProgress * 20}%`, // Telegram style goes from circle to slightly rounded square if it was a square initially, we'll keep it circle and shrink
+                 borderRadius: `${30 + scrollProgress * 20}%`,
                }}
-               onClick={() => setIsViewerOpen(true)}
+               onClick={() => !hasBlockedMe && setIsViewerOpen(true)}
              >
-               <AvatarImage src={user.avatar} className="object-cover" />
+               <AvatarImage src={hasBlockedMe ? undefined : user.avatar} className="object-cover" />
                <AvatarFallback className="text-2xl transition-all" style={{ fontSize: `${24 - scrollProgress * 10}px` }}>{user.name.charAt(0)}</AvatarFallback>
              </Avatar>
              
@@ -126,7 +159,7 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
                    marginTop: `${4 * (1 - scrollProgress)}px`
                  }}
                >
-                 last seen recently
+                 {hasBlockedMe ? 'last seen a long time ago' : 'last seen recently'}
                </span>
              </div>
           </div>
@@ -141,7 +174,13 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
         >
            {/* Spacer for sticky header */}
            <div style={{ height: '220px' }} />
-           
+
+           {hasBlockedMe ? (
+             <div className="px-6 py-8 text-center text-muted-foreground text-sm">
+               This profile is not available to you.
+             </div>
+           ) : (
+           <>
            <div className="flex justify-center gap-6 py-4 px-6 bg-card">
               <Button variant="ghost" className="flex flex-col gap-2 h-auto py-2 hover:bg-accent/50 text-muted-foreground hover:text-foreground">
                 <Phone className="h-5 w-5" />
@@ -197,7 +236,14 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
               {blockedUserIds.includes(user.id) ? (
                 <div
                   className="px-5 py-3 flex items-center gap-4 hover:bg-primary/10 text-primary transition-colors cursor-pointer"
-                  onClick={() => setBlockedUsers(blockedUserIds.filter((id) => id !== user.id))}
+                  onClick={async () => {
+                    try {
+                      await settingsService.unblockUser(user.id);
+                      setBlockedUsers(blockedUserIds.filter((id) => id !== user.id));
+                    } catch {
+                      // keep state on error
+                    }
+                  }}
                 >
                   <Ban className="h-5 w-5" />
                   <span className="text-[15px]">Unblock User</span>
@@ -212,14 +258,44 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
                 </div>
               )}
               
-              <div
-                className="px-5 py-3 flex items-center gap-4 hover:bg-destructive/10 text-destructive transition-colors cursor-pointer"
-                onClick={() => setIsRemoveDialogOpen(true)}
-              >
-                <UserX className="h-5 w-5" />
-                <span className="text-[15px]">Remove Contact</span>
-              </div>
+              {isInContacts === true ? (
+                <div
+                  className="px-5 py-3 flex items-center gap-4 hover:bg-destructive/10 text-destructive transition-colors cursor-pointer"
+                  onClick={() => setIsRemoveDialogOpen(true)}
+                >
+                  <UserX className="h-5 w-5" />
+                  <span className="text-[15px]">Remove Contact</span>
+                </div>
+              ) : isInContacts === false ? (
+                <div
+                  className="px-5 py-3 flex items-center gap-4 hover:bg-primary/10 text-primary transition-colors cursor-pointer"
+                  onClick={async () => {
+                    if (!user) return;
+                    setIsAddContactLoading(true);
+                    try {
+                      await contactService.addContactByUserId(user.id);
+                      const list = await contactService.getContacts();
+                      const contact = Array.isArray(list)
+                        ? list.find((c: { contactId?: string }) => c.contactId === user.id)
+                        : null;
+                      setIsInContacts(true);
+                      setContactRecordId(contact ? (contact as { id: string }).id : null);
+                    } catch {
+                      // keep state as not in contacts
+                    } finally {
+                      setIsAddContactLoading(false);
+                    }
+                  }}
+                >
+                  <UserPlus className="h-5 w-5" />
+                  <span className="text-[15px]">
+                    {isAddContactLoading ? 'Adding...' : 'Add to contacts'}
+                  </span>
+                </div>
+              ) : null}
             </div>
+           </>
+           )}
           </div>
         ) : (
           /* Shared Media View */
@@ -320,9 +396,14 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                if (!blockedUserIds.includes(user.id)) {
-                  setBlockedUsers([...blockedUserIds, user.id]);
+              onClick={async () => {
+                try {
+                  await settingsService.blockUser(user.id);
+                  if (!blockedUserIds.includes(user.id)) {
+                    setBlockedUsers([...blockedUserIds, user.id]);
+                  }
+                } catch {
+                  // keep dialog open on error
                 }
                 setIsBlockDialogOpen(false);
                 onOpenChange(false);
@@ -334,7 +415,7 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
         </DialogContent>
       </Dialog>
 
-      {/* Remove contact confirm dialog (UI only mock) */}
+      {/* Remove contact confirm dialog */}
       <Dialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogTitle>Remove {user.name} from contacts?</DialogTitle>
@@ -348,8 +429,16 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                // In a real app we would update the contacts store here.
+              onClick={async () => {
+                if (contactRecordId) {
+                  try {
+                    await contactService.removeContact(contactRecordId);
+                    setIsInContacts(false);
+                    setContactRecordId(null);
+                  } catch {
+                    // keep dialog open on error
+                  }
+                }
                 setIsRemoveDialogOpen(false);
                 onOpenChange(false);
               }}

@@ -4,6 +4,7 @@ import { chatService } from "@/services/chat.service";
 import type { Chat, Message } from "@/services/chat.service";
 import { useChatStore } from "@/store/chat.store";
 import { useChatsStore } from "@/store/chats.store";
+import { usePrivacySettingsStore } from "@/features/settings/store/privacy.store";
 import { useOnlineStore } from "@/store/online.store";
 import { useAuthStore } from "@/store/auth.store";
 import { cn } from "@/lib/utils";
@@ -24,7 +25,13 @@ export function ChatList() {
   const { user } = useAuthStore();
 
   useEffect(() => {
-    chatService.getChats().then(setChats);
+    chatService.getChats().then((chats) => {
+      setChats(chats);
+      const addBlockedByUser = usePrivacySettingsStore.getState().addBlockedByUser;
+      chats.forEach((c) => {
+        if (c.blockedByThem && c.participant?.id) addBlockedByUser(c.participant.id);
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -51,7 +58,8 @@ export function ChatList() {
     <div className="px-2 space-y-0.5">
       {chats.map((chat) => {
         const unread = getUnreadCount(chat.id);
-        const online = chat.participant?.id ? isOnline(chat.participant.id) : false;
+        const blockedByThem = !!chat.blockedByThem;
+        const online = !blockedByThem && chat.participant?.id ? isOnline(chat.participant.id) : false;
         return (
           <div
             key={chat.id}
@@ -65,7 +73,7 @@ export function ChatList() {
           >
             <div className="relative flex-shrink-0">
               <Avatar className="h-12 w-12 border border-border/50">
-                <AvatarImage src={chat.participant?.avatar} />
+                <AvatarImage src={blockedByThem ? undefined : chat.participant?.avatar} />
                 <AvatarFallback
                   className={selectedChatId === chat.id ? "text-foreground" : ""}
                 >
