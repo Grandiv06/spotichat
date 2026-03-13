@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ChevronDown } from "lucide-react";
 
 interface ChatAreaProps {
   chatId: string;
@@ -28,10 +29,14 @@ interface ChatAreaProps {
 export function ChatArea({ chatId }: ChatAreaProps) {
   const { user } = useAuthStore();
   const updateLastMessage = useChatsStore((s) => s.updateLastMessage);
+  const clearUnread = useChatsStore((s) => s.clearUnread);
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const initialScrollDoneRef = useRef(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   // Search state
   const [isSearching, setIsSearching] = useState(false);
@@ -108,9 +113,6 @@ export function ChatArea({ chatId }: ChatAreaProps) {
               chatService.markDelivered(m.id);
             }
           }
-          for (const m of fromOther) {
-            chatService.markSeen(m.id);
-          }
         }
       } catch (e) {
         console.error(e);
@@ -122,18 +124,43 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     loadChat();
   }, [chatId, user?.id]);
 
+  useEffect(() => {
+    seenMessageIdsRef.current = new Set();
+    initialScrollDoneRef.current = false;
+  }, [chatId]);
+
   // Subscribe to real-time WebSocket events for this chat
   useEffect(() => {
     const unsubMessage = chatService.onNewMessage((message) => {
       if (message.chatId !== chatId) return;
+
       const isFromOther = message.senderId !== user?.id;
+
+      const container = messagesContainerRef.current;
+      const wasAtBottom = container
+        ? container.scrollHeight - container.scrollTop - container.clientHeight < 80
+        : true;
+
       setMessages((prev) => {
         if (prev.some((m) => m.id === message.id)) return prev;
         return [...prev, message];
       });
+
+      // فقط وقتی کاربر پایین چت بود بعد از پیام جدید اسکرول کن (مثل تلگرام)
+      if (container && wasAtBottom) {
+        const scrollToBottom = () => {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: "smooth",
+          });
+        };
+        requestAnimationFrame(() => {
+          requestAnimationFrame(scrollToBottom);
+        });
+      }
+
       if (isFromOther) {
         chatService.markDelivered(message.id);
-        chatService.markSeen(message.id);
       }
     });
 
@@ -151,15 +178,45 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     };
   }, [chatId, user?.id]);
 
+  // Telegram: after load, open at first unread (and stay there) or at bottom if no unread
+  useEffect(() => {
+    if (isLoading || messages.length === 0 || initialScrollDoneRef.current) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const fromOther = messages.filter((m) => m.senderId !== user?.id);
+    const unread = fromOther.filter((m) => m.status !== "seen");
+
+    if (unread.length > 0) {
+      const firstUnread = unread[0];
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`msg-${firstUnread.id}`);
+        if (el) el.scrollIntoView({ block: "start", behavior: "auto" });
+      });
+    } else {
+      container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
+    }
+    initialScrollDoneRef.current = true;
+    clearUnread(chatId);
+  }, [chatId, isLoading, messages, user?.id, clearUnread]);
+
+  // Track if user is at bottom (for FAB and for auto-scroll on new message)
+  const checkAtBottom = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    const { scrollTop, clientHeight, scrollHeight } = container;
+    return scrollHeight - scrollTop - clientHeight < 80;
+  };
+
   useEffect(() => {
     const container = messagesContainerRef.current;
-    if (container) {
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: "auto",
-      });
-    }
-  }, [messages]);
+    if (!container) return;
+    const onScroll = () => setShowScrollToBottom(!checkAtBottom());
+    container.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => container.removeEventListener("scroll", onScroll);
+  }, [chatId, isLoading]);
+
 
   const isRestrictedByOther = useMemo(
     () => chat?.participant.id === "u3",
@@ -211,6 +268,18 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
     // 1. Optimistic UI update
     setMessages((prev) => [...prev, optimisticMsg]);
+    
+    // Smooth scroll for our own sending message
+    setTimeout(() => {
+      const container = messagesContainerRef.current;
+      if (container) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }, 50);
+
     // Play send sound immediately on optimistic send
     playSendSound();
 
@@ -218,28 +287,25 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       // 2. Network Request
       const sentMsg = await chatService.sendMessage(newMsgObj);
 
-      // 3. Replace temp with confirmed and dedupe (message:new may have already added it)
+      // 3. Replace temp with confirmed message and ensure no duplicates
       setMessages((prev) => {
+        // Filter out the temp message
         const withoutTemp = prev.filter((m) => m.id !== tempId);
-        const withoutDuplicate = withoutTemp.filter((m) => m.id !== sentMsg.id);
-        const merged = [...withoutDuplicate, sentMsg].sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        );
-        return merged;
+        
+        // If the broadcast (onNewMessage) already added the real message, 
+        // just return the list without temp.
+        if (withoutTemp.some((m) => m.id === sentMsg.id)) {
+          return withoutTemp;
+        }
+        
+        // Otherwise add the confirmed message
+        return [...withoutTemp, sentMsg];
       });
 
       updateLastMessage(chatId, sentMsg);
-
-      setTimeout(() => {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === sentMsg.id ? { ...m, status: "delivered" } : m,
-          ),
-        );
-      }, 2500);
     } catch (e) {
       console.error(e);
-      // Revert optimistic update on failure (optional for this mock, but good practice)
+      // Revert optimistic update on failure
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
   };
@@ -365,14 +431,15 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         </div>
       )}
 
-      <div
-        ref={messagesContainerRef}
-        className={cn(
-          "flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar mt-16 md:mt-0",
-          pinnedMessage ? "pt-16" : "",
-        )}
-      >
-        <div className="flex flex-col gap-2 min-h-full justify-end pb-2">
+      <div className="relative flex-1 min-h-0 flex flex-col mt-16 md:mt-0">
+        <div
+          ref={messagesContainerRef}
+          className={cn(
+            "flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar",
+            pinnedMessage ? "pt-16" : "",
+          )}
+        >
+          <div className="flex flex-col gap-2 min-h-full justify-end pb-2">
           {/* Simple date badge placeholder */}
           <div className="flex justify-center my-4 sticky top-0 z-10">
             <span className="bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-muted-foreground shadow-sm">
@@ -446,11 +513,39 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                   onToggleReaction={(emoji) =>
                     handleToggleReaction(msg.id, emoji)
                   }
+                  onVisible={
+                    msg.senderId !== user?.id
+                      ? () => {
+                          if (seenMessageIdsRef.current.has(msg.id)) return;
+                          seenMessageIdsRef.current.add(msg.id);
+                          chatService.markSeen(msg.id);
+                        }
+                      : undefined
+                  }
+                  scrollContainerRef={messagesContainerRef}
                 />
               </div>
             ))
           )}
+          </div>
         </div>
+        {showScrollToBottom && (
+          <Button
+            type="button"
+            size="icon"
+            className="absolute bottom-5 right-6 h-12 w-12 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all duration-200 shadow-[0_6px_20px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.2)] ring-2 ring-primary/30 dark:ring-primary/40 backdrop-blur-sm animate-in zoom-in-95 fade-in duration-200"
+            onClick={() => {
+              messagesContainerRef.current?.scrollTo({
+                top: messagesContainerRef.current.scrollHeight,
+                behavior: "smooth",
+              });
+              setShowScrollToBottom(false);
+            }}
+            aria-label="برو به پایین چت"
+          >
+            <ChevronDown className="h-5 w-5 stroke-[2.5]" />
+          </Button>
+        )}
       </div>
 
       <MessageInput

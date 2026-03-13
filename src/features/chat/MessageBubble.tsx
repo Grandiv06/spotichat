@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Check, CheckCheck, Clock, Copy, Reply, Pin, Forward, Trash2 } from 'lucide-react';
 import type { Message } from '@/services/chat.service';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,8 @@ interface MessageBubbleProps {
   onForwardToggle?: () => void;
   onPinMessage?: () => void;
   onToggleReaction?: (emoji: string) => void;
+  onVisible?: () => void;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 function escapeRegExp(string: string) {
@@ -42,6 +44,8 @@ export function MessageBubble({
   onForwardToggle,
   onPinMessage,
   onToggleReaction,
+  onVisible,
+  scrollContainerRef,
 }: MessageBubbleProps) {
   const { user } = useAuthStore();
   const storeStatus = useMessageStatusStore((s) => s.getStatus(message.id));
@@ -49,6 +53,26 @@ export function MessageBubble({
   const isMe = user?.id === message.senderId;
   const [translateX, setTranslateX] = useState(0);
   const touchStartX = useRef<number | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const onVisibleFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (!onVisible || onVisibleFiredRef.current) return;
+    const el = rootRef.current;
+    const scrollRoot = scrollContainerRef?.current ?? null;
+    if (!el || !scrollRoot) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting || onVisibleFiredRef.current) return;
+        onVisibleFiredRef.current = true;
+        onVisible();
+      },
+      { root: scrollRoot, threshold: 0.5, rootMargin: '0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onVisible, scrollContainerRef]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     touchStartX.current = e.clientX;
@@ -85,11 +109,12 @@ export function MessageBubble({
 
   return (
     <div
+      ref={rootRef}
       className={cn(
         "flex w-full mb-2",
         isMe ? "justify-end" : "justify-start overflow-hidden",
-        // Telegram-style "pop up" animation for newly sent messages
-        status === 'sending' && "animate-in slide-in-from-bottom-2 fade-in duration-200",
+        status === "sending" &&
+          "animate-in slide-in-from-bottom-4 fade-in zoom-in-95 duration-300 ease-out",
       )}
     >
       <DropdownMenu>
