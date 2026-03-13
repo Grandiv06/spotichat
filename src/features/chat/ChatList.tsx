@@ -42,8 +42,9 @@ export function ChatList() {
     const unsub = chatService.onNewMessage((message: Message) => {
       updateLastMessage(message.chatId, message);
       const isFromOther = message.senderId !== user?.id;
-      if (isFromOther && message.chatId !== selectedChatId) {
-        addUnread(message.chatId);
+      if (isFromOther) {
+        if (message.chatId !== selectedChatId) addUnread(message.chatId);
+        chatService.markDelivered(message.id);
       }
     });
     return unsub;

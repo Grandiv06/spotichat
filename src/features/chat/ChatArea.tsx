@@ -7,6 +7,7 @@ import { chatService } from "@/services/chat.service";
 import type { Message, Chat } from "@/services/chat.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useChatsStore } from "@/store/chats.store";
+import { useMessageStatusStore } from "@/store/message-status.store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { playSendSound } from "@/lib/sounds";
@@ -38,6 +39,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
   const initialScrollDoneRef = useRef(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const pendingSeenIdsRef = useRef<Set<string>>(new Set());
+  const seenFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Search state
   const [isSearching, setIsSearching] = useState(false);
@@ -260,6 +263,30 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     initialScrollDoneRef.current = true;
     clearUnread(chatId);
   }, [chatId, isLoading, messages, user?.id, clearUnread]);
+
+  // Unread count: messages from others that are not yet seen (counter for scroll-to-bottom badge)
+  const unreadCount = useMemo(
+    () =>
+      messages.filter(
+        (m) => m.senderId !== user?.id && m.status !== "seen" && m.status !== "sending",
+      ).length,
+    [messages, user?.id],
+  );
+
+  // Flush pending markSeen to backend (debounced) so we don't spam Socket.io
+  const flushPendingSeen = useRef(() => {
+    if (pendingSeenIdsRef.current.size === 0) return;
+    const ids = Array.from(pendingSeenIdsRef.current);
+    pendingSeenIdsRef.current.clear();
+    ids.forEach((id) => chatService.markSeen(id));
+  });
+
+  useEffect(() => {
+    return () => {
+      if (seenFlushTimeoutRef.current) clearTimeout(seenFlushTimeoutRef.current);
+      flushPendingSeen.current();
+    };
+  }, [chatId]);
 
   // Track if user is at bottom (for FAB and for auto-scroll on new message)
   const checkAtBottom = () => {
@@ -592,7 +619,19 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                       ? () => {
                           if (seenMessageIdsRef.current.has(msg.id)) return;
                           seenMessageIdsRef.current.add(msg.id);
-                          chatService.markSeen(msg.id);
+                          setMessages((prev) =>
+                            prev.map((m) =>
+                              m.id === msg.id ? { ...m, status: "seen" as const } : m,
+                            ),
+                          );
+                          useMessageStatusStore.getState().setStatus(msg.id, "seen");
+                          pendingSeenIdsRef.current.add(msg.id);
+                          if (seenFlushTimeoutRef.current)
+                            clearTimeout(seenFlushTimeoutRef.current);
+                          seenFlushTimeoutRef.current = setTimeout(() => {
+                            seenFlushTimeoutRef.current = null;
+                            flushPendingSeen.current();
+                          }, 400);
                         }
                       : undefined
                   }
@@ -604,21 +643,42 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           </div>
         </div>
         {showScrollToBottom && (
-          <Button
-            type="button"
-            size="icon"
-            className="absolute bottom-5 right-6 h-12 w-12 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all duration-200 shadow-[0_6px_20px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.2)] ring-2 ring-primary/30 dark:ring-primary/40 backdrop-blur-sm animate-in zoom-in-95 fade-in duration-200"
-            onClick={() => {
-              messagesContainerRef.current?.scrollTo({
-                top: messagesContainerRef.current.scrollHeight,
-                behavior: "smooth",
-              });
-              setShowScrollToBottom(false);
-            }}
-            aria-label="برو به پایین چت"
-          >
-            <ChevronDown className="h-5 w-5 stroke-[2.5]" />
-          </Button>
+          <div className="absolute bottom-5 right-6 flex flex-col items-center gap-0">
+            <Button
+              type="button"
+              size="icon"
+              className={cn(
+                "relative h-12 w-12 rounded-full transition-all duration-200",
+                "bg-background/80 dark:bg-background/70 backdrop-blur-xl border border-border/50",
+                "shadow-[0_4px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.35)]",
+                "hover:bg-background/90 hover:scale-105 active:scale-95",
+                "text-foreground hover:text-primary",
+                "animate-in zoom-in-95 fade-in duration-200",
+              )}
+              onClick={() => {
+                messagesContainerRef.current?.scrollTo({
+                  top: messagesContainerRef.current.scrollHeight,
+                  behavior: "smooth",
+                });
+                setShowScrollToBottom(false);
+              }}
+              aria-label="Scroll to bottom"
+            >
+              <ChevronDown className="h-5 w-5 stroke-[2.5]" />
+              {unreadCount > 0 && (
+                <span
+                  className={cn(
+                    "absolute -top-1 -right-1 flex min-w-[20px] h-5 items-center justify-center rounded-full",
+                    "bg-primary text-primary-foreground text-xs font-semibold",
+                    "px-1.5 shadow-sm ring-2 ring-background",
+                    "animate-in zoom-in-90 duration-200",
+                  )}
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Button>
+          </div>
         )}
       </div>
 

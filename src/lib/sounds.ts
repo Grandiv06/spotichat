@@ -1,6 +1,7 @@
 let audioContext: AudioContext | null = null;
 let telegramAudio: HTMLAudioElement | null = null;
 let callAudio: HTMLAudioElement | null = null;
+let messageNotificationAudio: HTMLAudioElement | null = null;
 
 export type SendSoundId =
   | "ding"
@@ -465,6 +466,7 @@ export function setSendSound(id: SendSoundId) {
 
 export function playSendSound() {
   try {
+    unlockMessageNotificationAudio();
     const id = getSendSound();
     if (id === "none") return;
 
@@ -505,6 +507,42 @@ export function playCallNotificationSound(loop: boolean = false) {
     });
   } catch {
     // non-critical
+  }
+}
+
+/** Call this during a user gesture (e.g. when sending a message or first click) to unlock notification sound for later. */
+export function unlockMessageNotificationAudio() {
+  if (typeof window === "undefined") return;
+  if (messageNotificationAudio) return;
+  try {
+    messageNotificationAudio = new Audio("/sounds/mixkit-happy-bells-notification-937.wav");
+    messageNotificationAudio.preload = "auto";
+    messageNotificationAudio.volume = 0;
+    messageNotificationAudio.play().then(() => {
+      messageNotificationAudio?.pause();
+      if (messageNotificationAudio) messageNotificationAudio.currentTime = 0;
+      if (messageNotificationAudio) messageNotificationAudio.volume = 0.7;
+    }).catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
+/** Play a short sound when a new message arrives (from another user). Uses an Audio file; unlock first via playSendSound or any user click. */
+export function playMessageNotificationSound() {
+  if (typeof window === "undefined") return;
+  try {
+    if (!messageNotificationAudio) {
+      messageNotificationAudio = new Audio("/sounds/mixkit-happy-bells-notification-937.wav");
+      messageNotificationAudio.preload = "auto";
+    }
+    messageNotificationAudio.volume = 0.7;
+    messageNotificationAudio.currentTime = 0;
+    messageNotificationAudio.play().catch(() => {
+      // Autoplay may be blocked until user has interacted with the page
+    });
+  } catch {
+    // Fail silently
   }
 }
 

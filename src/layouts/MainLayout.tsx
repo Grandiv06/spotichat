@@ -16,7 +16,9 @@ import { useChatsStore } from "@/store/chats.store";
 import { useAuthStore } from "@/store/auth.store";
 import { useConnectionStatusStore } from "@/store/connection-status.store";
 import { connectSocket, getSocket, onSocketEvent } from "@/lib/socket";
+import { playMessageNotificationSound, unlockMessageNotificationAudio } from "@/lib/sounds";
 import { chatService } from "@/services/chat.service";
+import type { Message } from "@/services/chat.service";
 
 import { apiFetch } from "@/lib/api";
 import { contactService } from "@/services/contact.service";
@@ -45,6 +47,20 @@ export function MainLayout() {
   useEffect(() => {
     if (!isAuthenticated) return;
     connectSocket();
+  }, [isAuthenticated]);
+
+  // Unlock notification sound on first user interaction (browser autoplay policy)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const unlock = () => unlockMessageNotificationAudio();
+    document.addEventListener("click", unlock, { once: true });
+    document.addEventListener("touchstart", unlock, { once: true });
+    document.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      document.removeEventListener("click", unlock);
+      document.removeEventListener("touchstart", unlock);
+      document.removeEventListener("keydown", unlock);
+    };
   }, [isAuthenticated]);
 
   // Connection status: window online/offline + socket connect/disconnect (Telegram-like)
@@ -117,10 +133,18 @@ export function MainLayout() {
     const unsubStatus = chatService.onMessageStatus((data: { id: string; status: string }) => {
       useMessageStatusStore.getState().setStatus(data.id, data.status);
     });
+    const unsubNewMessage = chatService.onNewMessage((message: Message) => {
+      const currentUser = useAuthStore.getState().user;
+      if (!currentUser || message.senderId === currentUser.id) return;
+      const openChatId = useChatStore.getState().selectedChatId;
+      if (openChatId === message.chatId) return;
+      playMessageNotificationSound();
+    });
     return () => {
       unsubOnline();
       unsubOffline();
       unsubStatus();
+      unsubNewMessage();
     };
   }, [isAuthenticated]);
 
