@@ -73,16 +73,6 @@ export function MainMenuView() {
             label="Privacy & Security" 
             onClick={() => navigate('privacy')} 
           />
-          <SettingsRow 
-            icon={<Smartphone className="h-5 w-5" />} 
-            label="Devices" 
-            onClick={() => navigate('devices')} 
-          />
-          <SettingsRow 
-            icon={<Database className="h-5 w-5" />} 
-            label="Storage & Data" 
-            onClick={() => navigate('storage')} 
-          />
         </SettingsSection>
 
         <SettingsSection>

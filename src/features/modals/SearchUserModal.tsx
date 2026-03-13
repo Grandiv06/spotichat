@@ -3,6 +3,7 @@ import { Search, UserPlus, MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { contactService } from '@/services/contact.service';
+import { chatService } from '@/services/chat.service';
 import { useModalStore } from '@/store/modal.store';
 import { useChatStore } from '@/store/chat.store';
 import type { User } from '@/services/auth.service';
@@ -17,6 +18,7 @@ export function SearchUserModal() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   useEffect(() => {
     if (!query) {
@@ -39,11 +41,18 @@ export function SearchUserModal() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const handleStartChat = (user: User) => {
-    // In a real app we'd create a chat room with user, return its ID and set it.
-    // For mock, we pretend the user ID or a mock chat ID is the string
-    setSelectedChatId(`new_${user.id}`);
-    setSearchOpen(false);
+  const handleStartChat = async (user: User) => {
+    if (isStarting) return;
+    setIsStarting(true);
+    try {
+      const chatId = await chatService.startChat(user.id);
+      setSelectedChatId(chatId);
+      setSearchOpen(false);
+    } catch (e) {
+      console.error('Failed to start chat:', e);
+    } finally {
+      setIsStarting(false);
+    }
   };
 
   return (

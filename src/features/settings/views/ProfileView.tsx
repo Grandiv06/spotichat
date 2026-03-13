@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuthStore } from '@/store/auth.store';
+import { authService } from '@/services/auth.service';
 import { SettingsSection } from '../components/SettingsSection';
 import { SettingsRow } from '../components/SettingsRow';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,6 +12,8 @@ export function ProfileView() {
   const { user, updateProfile } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(user?.name || '');
   const [username, setUsername] = useState(user?.username || '');
@@ -24,16 +27,40 @@ export function ProfileView() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleSave = () => {
-    updateProfile({ name, username, bio });
+  const handleSave = async () => {
+    try {
+      const updated = await authService.updateProfile({ name, username, bio });
+      updateProfile(updated);
+    } catch (e: any) {
+      console.error('Failed to update profile:', e);
+    }
     setIsEditing(false);
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const updated = await authService.uploadAvatar(file);
+      updateProfile({ avatar: updated.avatar });
+    } catch (err: any) {
+      console.error('Failed to upload avatar:', err);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   if (isEditing) {
     return (
       <div className="animate-in slide-in-from-right-2 duration-300 p-4 space-y-6">
         <div className="flex flex-col items-center mb-6">
-          <div className="relative group cursor-pointer">
+          <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
             <Avatar className="h-28 w-28 ring-2 ring-border">
               <AvatarImage src={user.avatar} />
               <AvatarFallback className="text-3xl bg-primary/10 text-primary">
@@ -44,7 +71,19 @@ export function ProfileView() {
               <Camera className="h-8 w-8" />
             </div>
           </div>
-          <span className="text-sm text-primary mt-2 cursor-pointer hover:underline font-medium">Set New Photo</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+          <span
+            className="text-sm text-primary mt-2 cursor-pointer hover:underline font-medium"
+            onClick={handleAvatarClick}
+          >
+            {isUploading ? 'Uploading...' : 'Set New Photo'}
+          </span>
         </div>
 
         <div className="space-y-4">

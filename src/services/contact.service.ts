@@ -1,31 +1,31 @@
-import { delay } from './auth.service';
+import { apiFetch } from '@/lib/api';
 import type { User } from './auth.service';
-
-const mockUsersDatabase: User[] = [
-  { id: 'u2', phone: '+989000000002', name: 'Ali', username: 'ali_dev', avatar: 'https://i.pravatar.cc/150?u=u2' },
-  { id: 'u3', phone: '+989000000003', name: 'Sara', avatar: 'https://i.pravatar.cc/150?u=u3' },
-  { id: 'u4', phone: '+989000000004', name: 'Reza', username: 'reza123', avatar: 'https://i.pravatar.cc/150?u=u4' },
-];
 
 export const contactService = {
   searchUsers: async (query: string): Promise<User[]> => {
-    await delay(600);
-    if (!query) return [];
-    
-    const lowercaseQuery = query.toLowerCase();
-    return mockUsersDatabase.filter(u => 
-      u.username?.toLowerCase().includes(lowercaseQuery) || 
-      u.id.toLowerCase() === lowercaseQuery ||
-      u.phone.includes(lowercaseQuery)
-    );
+    if (!query || query.length < 2) return [];
+    return apiFetch(`/users/search?q=${encodeURIComponent(query)}`);
+  },
+
+  getContacts: async (): Promise<any[]> => {
+    return apiFetch('/contacts');
   },
 
   addContact: async (phone: string): Promise<User> => {
-    await delay(1000);
-    const user = mockUsersDatabase.find(u => u.phone === phone);
-    if (user) {
-      return user;
-    }
-    throw new Error('User not found');
-  }
+    return apiFetch('/contacts', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+  },
+
+  addContactByUserId: async (userId: string, customName?: string): Promise<any> => {
+    return apiFetch('/contacts', {
+      method: 'POST',
+      body: JSON.stringify({ userId, customName }),
+    });
+  },
+
+  removeContact: async (contactId: string): Promise<void> => {
+    await apiFetch(`/contacts/${contactId}`, { method: 'DELETE' });
+  },
 };

@@ -82,8 +82,18 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     const loadChat = async () => {
       setIsLoading(true);
       try {
-        const chats = await chatService.getChats();
-        const currentChat = chats.find((c) => c.id === chatId);
+        // Try to find the chat from the full list
+        let chats = await chatService.getChats();
+        let currentChat = chats.find((c) => c.id === chatId);
+
+        // If not found, it might be a newly created chat — refetch
+        if (!currentChat) {
+          // Small delay to allow the server to process
+          await new Promise((r) => setTimeout(r, 300));
+          chats = await chatService.getChats();
+          currentChat = chats.find((c) => c.id === chatId);
+        }
+
         if (currentChat) setChat(currentChat);
 
         const msgs = await chatService.getMessages(chatId);
@@ -96,6 +106,32 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     };
 
     loadChat();
+  }, [chatId]);
+
+  // Subscribe to real-time WebSocket events for this chat
+  useEffect(() => {
+    const unsubMessage = chatService.onNewMessage((message) => {
+      if (message.chatId === chatId) {
+        setMessages((prev) => {
+          // Avoid duplicates (e.g., own message already added optimistically)
+          if (prev.some((m) => m.id === message.id)) return prev;
+          return [...prev, message];
+        });
+      }
+    });
+
+    const unsubStatus = chatService.onMessageStatus((data) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === data.id ? { ...m, status: data.status as any } : m,
+        ),
+      );
+    });
+
+    return () => {
+      unsubMessage();
+      unsubStatus();
+    };
   }, [chatId]);
 
   useEffect(() => {
@@ -168,11 +204,16 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       // 2. Network Request
       const sentMsg = await chatService.sendMessage(newMsgObj);
 
-      // 3. Replace temp message with confirmed message
-      setMessages((prev) => prev.map((m) => (m.id === tempId ? sentMsg : m)));
+      // 3. Replace temp with confirmed and dedupe (message:new may have already added it)
+      setMessages((prev) => {
+        const withoutTemp = prev.filter((m) => m.id !== tempId);
+        const withoutDuplicate = withoutTemp.filter((m) => m.id !== sentMsg.id);
+        const merged = [...withoutDuplicate, sentMsg].sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        );
+        return merged;
+      });
 
-      // Since our mock service also updates the status to 'delivered' after 2s internally,
-      // we can simulate syncing that back to the UI state here for a full demo feel:
       setTimeout(() => {
         setMessages((prev) =>
           prev.map((m) =>

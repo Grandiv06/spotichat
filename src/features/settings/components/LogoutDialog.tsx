@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth.store';
 import { useSettingsStore } from '../store/settings.store';
+import { authService } from '@/services/auth.service';
 
 export function LogoutDialog() {
   const { logout } = useAuthStore();
@@ -9,7 +10,8 @@ export function LogoutDialog() {
 
   const isLogoutOpen = activeView === 'logout';
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authService.logout();
     logout();
     setOpen(false);
   };

@@ -1,4 +1,5 @@
-export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+import { apiFetch, setTokens, clearTokens } from '@/lib/api';
+import { connectSocket, disconnectSocket } from '@/lib/socket';
 
 export interface User {
   id: string;
@@ -9,35 +10,71 @@ export interface User {
   bio?: string;
 }
 
-const mockUser: User = {
-  id: 'u1',
-  phone: '+989123456789',
-  name: 'Soroush',
-  username: 'soroush',
-  avatar: 'https://i.pravatar.cc/150?u=u1',
-};
-
 export const authService = {
-  // Simulates sending OTP
   sendOtp: async (phone: string): Promise<boolean> => {
-    await delay(1000);
-    console.log(`Mock OTP sent to ${phone}: 12345`);
-    return true; // success
+    await apiFetch('/auth/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+    return true;
   },
 
-  // Simulates verifying OTP and returning user data
   verifyOtp: async (phone: string, code: string): Promise<User> => {
-    await delay(1500);
-    if (code === '12345') {
-      return { ...mockUser, phone };
-    }
-    throw new Error('Invalid OTP');
+    const data = await apiFetch('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({
+        phone,
+        code,
+        deviceName: navigator.userAgent.slice(0, 50),
+        platform: navigator.platform,
+        browser: navigator.userAgent.includes('Chrome') ? 'Chrome' :
+                 navigator.userAgent.includes('Firefox') ? 'Firefox' :
+                 navigator.userAgent.includes('Safari') ? 'Safari' : 'Other',
+      }),
+    });
+
+    // Store tokens
+    setTokens(data.accessToken, data.refreshToken);
+
+    // Connect WebSocket after login
+    connectSocket();
+
+    return data.user;
   },
-  
-  // Simulates checking session
+
   getCurrentUser: async (): Promise<User | null> => {
-    await delay(500);
-    // In a real app we'd check tokens. Currently just return null or mock if persisted
-    return null;
-  }
+    try {
+      const user = await apiFetch('/users/me');
+      connectSocket();
+      return user;
+    } catch {
+      return null;
+    }
+  },
+
+  logout: async (): Promise<void> => {
+    try {
+      await apiFetch('/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+    } catch {
+      // ignore
+    }
+    disconnectSocket();
+    clearTokens();
+  },
+
+  updateProfile: async (data: { name?: string; username?: string; bio?: string }): Promise<User> => {
+    return apiFetch('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  uploadAvatar: async (file: File): Promise<User> => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    return apiFetch('/users/me/avatar', {
+      method: 'POST',
+      body: formData,
+    });
+  },
 };

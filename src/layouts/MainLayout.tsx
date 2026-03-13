@@ -12,6 +12,11 @@ import {
 import { useModalStore } from "@/store/modal.store";
 import { useSettingsStore } from "@/features/settings/store/settings.store";
 import { useChatStore } from "@/store/chat.store";
+import { useAuthStore } from "@/store/auth.store";
+import { connectSocket } from "@/lib/socket";
+import { chatService } from "@/services/chat.service";
+import { apiFetch } from "@/lib/api";
+import { useOnlineStore } from "@/store/online.store";
 import { ChatList } from "@/features/chat/ChatList";
 import { ModalProvider } from "@/features/modals/ModalProvider";
 import { Button } from "@/components/ui/button";
@@ -23,10 +28,45 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Stories } from "@/features/chat/Stories";
+import { OnlineRow } from "@/features/chat/OnlineRow";
 
 export function MainLayout() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [storiesCollapsed, setStoriesCollapsed] = useState(false);
+  const { isAuthenticated } = useAuthStore();
+
+  // Connect WebSocket when user is authenticated (e.g. after refresh)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    connectSocket();
+  }, [isAuthenticated]);
+
+  // Fetch online users and subscribe to online/offline events
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const fetchOnline = async () => {
+      try {
+        const data = await apiFetch("/users/online");
+        if (Array.isArray(data?.userIds)) {
+          useOnlineStore.getState().setOnline(data.userIds);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchOnline();
+    const unsubOnline = chatService.onUserOnline(({ userId }) => {
+      useOnlineStore.getState().addOnline(userId);
+    });
+    const unsubOffline = chatService.onUserOffline(({ userId }) => {
+      useOnlineStore.getState().removeOnline(userId);
+    });
+    return () => {
+      unsubOnline();
+      unsubOffline();
+    };
+  }, [isAuthenticated]);
+
   const {
     setAddContactOpen,
     setSearchOpen,
@@ -178,6 +218,8 @@ export function MainLayout() {
               collapsed === true => height 0, opacity 0 (hidden)
               collapsed === false => full height & opacity (visible)
             */}
+            {/* Online users row */}
+            <OnlineRow />
             {/* Stories row */}
             <div
               className="px-2 pt-2 bg-sidebar text-sidebar-foreground"

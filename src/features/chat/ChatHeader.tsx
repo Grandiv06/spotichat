@@ -3,6 +3,7 @@ import { MoreVertical, Phone, Search, ArrowLeft } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useChatStore } from "@/store/chat.store";
+import { useOnlineStore } from "@/store/online.store";
 import type { User } from "@/services/auth.service";
 import { ChatProfileSheet } from "./ChatProfileSheet";
 import {
@@ -28,9 +29,11 @@ export function ChatHeader({
   onBlockUser,
 }: ChatHeaderProps) {
   const { setSelectedChatId } = useChatStore();
+  const { isOnline } = useOnlineStore();
   const [profileOpen, setProfileOpen] = useState(false);
 
   const isRestrictivePrivacyUser = participant.id === "u3";
+  const showOnline = isOnline(participant.id);
 
   return (
     <>
@@ -56,10 +59,12 @@ export function ChatHeader({
           </Avatar>
           <div className="flex flex-col pl-2">
             <span className="font-semibold">{participant.name}</span>
-            <span className="text-xs text-muted-foreground">
+            <span className={showOnline ? "text-xs text-green-600 dark:text-green-400" : "text-xs text-muted-foreground"}>
               {isRestrictivePrivacyUser
                 ? "last seen a long time ago"
-                : "last seen recently"}
+                : showOnline
+                  ? "online"
+                  : "last seen recently"}
             </span>
           </div>
         </div>

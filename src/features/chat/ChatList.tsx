@@ -12,7 +12,7 @@ export function ChatList() {
 
   useEffect(() => {
     chatService.getChats().then(setChats);
-  }, []);
+  }, [selectedChatId]);
 
   return (
     <div className="px-2 space-y-0.5">
