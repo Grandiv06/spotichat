@@ -152,14 +152,11 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   }, [chatId, user?.id]);
 
   useEffect(() => {
-    // Scroll only inside the messages container so the input bar
-    // stays fixed. Use smooth behavior for a Telegram-like feel.
     const container = messagesContainerRef.current;
     if (container) {
-      const isScrollable = container.scrollHeight > container.clientHeight + 4;
       container.scrollTo({
         top: container.scrollHeight,
-        behavior: isScrollable ? "smooth" : "auto",
+        behavior: "auto",
       });
     }
   }, [messages]);

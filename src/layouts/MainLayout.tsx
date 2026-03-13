@@ -12,6 +12,7 @@ import {
 import { useModalStore } from "@/store/modal.store";
 import { useSettingsStore } from "@/features/settings/store/settings.store";
 import { useChatStore } from "@/store/chat.store";
+import { useChatsStore } from "@/store/chats.store";
 import { useAuthStore } from "@/store/auth.store";
 import { connectSocket } from "@/lib/socket";
 import { chatService } from "@/services/chat.service";
@@ -79,14 +80,30 @@ export function MainLayout() {
   } = useModalStore();
   const { setOpen: setSettingsOpen } = useSettingsStore();
   const { selectedChatId } = useChatStore();
+  const chats = useChatsStore((s) => s.chats);
   const STORIES_HEIGHT = 120;
   const COLLAPSE_SCROLL_THRESHOLD = 4;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const collapsedRef = useRef(storiesCollapsed);
   const touchStartY = useRef(0);
   const touchStartScrollTop = useRef(0);
+  const hasScrolledToTopRef = useRef(false);
 
   collapsedRef.current = storiesCollapsed;
+
+  // Keep sidebar at top when opening chat page and when chats first load (no auto-scroll to bottom)
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    if (chats.length > 0 && !hasScrolledToTopRef.current) {
+      hasScrolledToTopRef.current = true;
+      el.scrollTop = 0;
+    }
+  }, [chats.length]);
+
+  useEffect(() => {
+    scrollContainerRef.current?.scrollTo(0, 0);
+  }, []);
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const target = event.currentTarget;
