@@ -14,8 +14,10 @@ import { useSettingsStore } from "@/features/settings/store/settings.store";
 import { useChatStore } from "@/store/chat.store";
 import { useChatsStore } from "@/store/chats.store";
 import { useAuthStore } from "@/store/auth.store";
-import { connectSocket } from "@/lib/socket";
+import { useConnectionStatusStore } from "@/store/connection-status.store";
+import { connectSocket, getSocket } from "@/lib/socket";
 import { chatService } from "@/services/chat.service";
+
 import { apiFetch } from "@/lib/api";
 import { useOnlineStore } from "@/store/online.store";
 import { useMessageStatusStore } from "@/store/message-status.store";
@@ -40,6 +42,53 @@ export function MainLayout() {
   useEffect(() => {
     if (!isAuthenticated) return;
     connectSocket();
+  }, [isAuthenticated]);
+
+  // Connection status: window online/offline + socket connect/disconnect (Telegram-like)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const setStatus = useConnectionStatusStore.getState().setStatus;
+    let updatingTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const onOnline = () => setStatus("connecting");
+    const onOffline = () => {
+      if (updatingTimeout) clearTimeout(updatingTimeout);
+      setStatus("offline");
+    };
+    const onConnect = () => {
+      setStatus("updating");
+      if (updatingTimeout) clearTimeout(updatingTimeout);
+      updatingTimeout = setTimeout(() => {
+        updatingTimeout = null;
+        setStatus("connected");
+      }, 2000);
+    };
+    const onDisconnect = () => {
+      if (updatingTimeout) clearTimeout(updatingTimeout);
+      updatingTimeout = null;
+      if (navigator.onLine) setStatus("connecting");
+    };
+
+    if (!navigator.onLine) setStatus("offline");
+    else {
+      const s = getSocket();
+      if (s.connected) onConnect();
+      else setStatus("connecting");
+    }
+
+    const s = getSocket();
+    s.on("connect", onConnect);
+    s.on("disconnect", onDisconnect);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+
+    return () => {
+      s.off("connect", onConnect);
+      s.off("disconnect", onDisconnect);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      if (updatingTimeout) clearTimeout(updatingTimeout);
+    };
   }, [isAuthenticated]);
 
   // Fetch online users and subscribe to online/offline events
@@ -146,6 +195,20 @@ export function MainLayout() {
     }
   };
 
+  const connectionStatus = useConnectionStatusStore((s) => s.status);
+  const showStatusSpinner =
+    connectionStatus === "offline" ||
+    connectionStatus === "connecting" ||
+    connectionStatus === "updating";
+  const connectionLabel =
+    connectionStatus === "offline"
+      ? "Waiting for network..."
+      : connectionStatus === "connecting"
+      ? "Connecting..."
+      : connectionStatus === "updating"
+      ? "Updating..."
+      : "SpotiChat";
+
   return (
     <div className="flex h-[100dvh] w-full bg-background overflow-hidden relative">
       {/* Sidebar - Hidden on small screens if chat is open, but for skeleton, just show standard structure */}
@@ -175,8 +238,23 @@ export function MainLayout() {
                   <Menu className="h-5 w-5" />
                 </Button>
               </div>
-              <div className="font-semibold text-lg tracking-tight select-none">
-                SpotiChat
+              <div className="font-semibold text-lg tracking-tight select-none flex items-center gap-2">
+                {showStatusSpinner && (
+                  <span
+                    className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent opacity-80"
+                    aria-hidden
+                  />
+                )}
+                <span
+                  key={connectionStatus}
+                  className={`inline-block transition-all duration-250 ease-out ${
+                    connectionStatus === "connected"
+                      ? "opacity-100"
+                      : "opacity-90 text-muted-foreground"
+                  } animate-in fade-in`}
+                >
+                  {connectionLabel}
+                </span>
               </div>
               <div className="flex items-center gap-1">
                 <Button
