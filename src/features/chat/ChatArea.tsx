@@ -125,12 +125,15 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   // Subscribe to real-time WebSocket events for this chat
   useEffect(() => {
     const unsubMessage = chatService.onNewMessage((message) => {
-      if (message.chatId === chatId) {
-        setMessages((prev) => {
-          // Avoid duplicates (e.g., own message already added optimistically)
-          if (prev.some((m) => m.id === message.id)) return prev;
-          return [...prev, message];
-        });
+      if (message.chatId !== chatId) return;
+      const isFromOther = message.senderId !== user?.id;
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === message.id)) return prev;
+        return [...prev, message];
+      });
+      if (isFromOther) {
+        chatService.markDelivered(message.id);
+        chatService.markSeen(message.id);
       }
     });
 
@@ -146,7 +149,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       unsubMessage();
       unsubStatus();
     };
-  }, [chatId]);
+  }, [chatId, user?.id]);
 
   useEffect(() => {
     // Scroll only inside the messages container so the input bar

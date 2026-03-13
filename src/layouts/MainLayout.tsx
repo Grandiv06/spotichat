@@ -17,6 +17,7 @@ import { connectSocket } from "@/lib/socket";
 import { chatService } from "@/services/chat.service";
 import { apiFetch } from "@/lib/api";
 import { useOnlineStore } from "@/store/online.store";
+import { useMessageStatusStore } from "@/store/message-status.store";
 import { ChatList } from "@/features/chat/ChatList";
 import { ModalProvider } from "@/features/modals/ModalProvider";
 import { Button } from "@/components/ui/button";
@@ -60,9 +61,13 @@ export function MainLayout() {
     const unsubOffline = chatService.onUserOffline(({ userId }) => {
       useOnlineStore.getState().removeOnline(userId);
     });
+    const unsubStatus = chatService.onMessageStatus((data: { id: string; status: string }) => {
+      useMessageStatusStore.getState().setStatus(data.id, data.status);
+    });
     return () => {
       unsubOnline();
       unsubOffline();
+      unsubStatus();
     };
   }, [isAuthenticated]);
 

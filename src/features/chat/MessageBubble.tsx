@@ -3,6 +3,7 @@ import { Check, CheckCheck, Clock, Copy, Reply, Pin, Forward, Trash2 } from 'luc
 import type { Message } from '@/services/chat.service';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth.store';
+import { useMessageStatusStore } from '@/store/message-status.store';
 import { AudioMessage } from './AudioMessage';
 import { VideoMessage } from './VideoMessage';
 import {
@@ -43,6 +44,8 @@ export function MessageBubble({
   onToggleReaction,
 }: MessageBubbleProps) {
   const { user } = useAuthStore();
+  const storeStatus = useMessageStatusStore((s) => s.getStatus(message.id));
+  const status = storeStatus ?? message.status;
   const isMe = user?.id === message.senderId;
   const [translateX, setTranslateX] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -86,7 +89,7 @@ export function MessageBubble({
         "flex w-full mb-2",
         isMe ? "justify-end" : "justify-start overflow-hidden",
         // Telegram-style "pop up" animation for newly sent messages
-        message.status === 'sending' && "animate-in slide-in-from-bottom-2 fade-in duration-200",
+        status === 'sending' && "animate-in slide-in-from-bottom-2 fade-in duration-200",
       )}
     >
       <DropdownMenu>
@@ -123,9 +126,9 @@ export function MessageBubble({
            </div>
         )}
         {message.type === 'voice' ? (
-          <AudioMessage isMe={isMe} status={message.status} duration={message.duration} />
+          <AudioMessage isMe={isMe} status={status as 'sending' | 'sent' | 'delivered' | 'seen'} duration={message.duration} />
         ) : message.type === 'video' ? (
-          <VideoMessage isMe={isMe} status={message.status} videoUrl={message.fileUrl} duration={message.duration} />
+          <VideoMessage isMe={isMe} status={status as 'sending' | 'sent' | 'delivered' | 'seen'} videoUrl={message.fileUrl} duration={message.duration} />
         ) : (
           <div className="text-[15px] leading-relaxed break-words break-all whitespace-pre-wrap">
             {(() => {
@@ -152,32 +155,35 @@ export function MessageBubble({
             {isMe && (
               <span
                 className={cn(
-                  "ml-0.5 mt-0.5 inline-flex h-4 w-4 items-center justify-center relative overflow-hidden",
-                  message.status === "seen" && "text-blue-600 dark:text-blue-400",
+                  "ml-0.5 mt-0.5 inline-flex h-4 w-4 items-center justify-center relative overflow-visible",
+                  "transition-colors duration-300 ease-out",
+                  status === "seen"
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-current",
                 )}
               >
                 <Clock
                   className={cn(
-                    "h-3.5 w-3.5 absolute transition-all duration-200",
-                    message.status === "sending"
-                      ? "opacity-100 translate-y-0"
-                      : "opacity-0 -translate-y-1",
+                    "h-3.5 w-3.5 absolute transition-all duration-300 ease-out",
+                    status === "sending"
+                      ? "opacity-100 scale-100 translate-y-0"
+                      : "opacity-0 scale-75 -translate-y-1",
                   )}
                 />
                 <Check
                   className={cn(
-                    "h-4 w-4 absolute transition-all duration-200",
-                    message.status === "sent"
-                      ? "opacity-100 translate-y-0"
-                      : "opacity-0 translate-y-1",
+                    "h-4 w-4 absolute transition-all duration-300 ease-out",
+                    status === "sent"
+                      ? "opacity-100 scale-100 translate-y-0"
+                      : "opacity-0 scale-75 translate-y-1",
                   )}
                 />
                 <CheckCheck
                   className={cn(
-                    "h-4 w-4 absolute transition-all duration-200",
-                    message.status === "delivered" || message.status === "seen"
-                      ? "opacity-100 translate-y-0"
-                      : "opacity-0 translate-y-1",
+                    "h-4 w-4 absolute transition-all duration-300 ease-out",
+                    status === "delivered" || status === "seen"
+                      ? "opacity-100 scale-100 translate-y-0"
+                      : "opacity-0 scale-75 translate-y-1",
                   )}
                 />
               </span>
