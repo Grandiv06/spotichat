@@ -38,6 +38,7 @@ interface PrivacySettingsState {
   clearPickerContext: () => void;
   setBlockedUsers: (contactIds: string[]) => void;
   addBlockedByUser: (userId: string) => void;
+  removeBlockedByUser: (userId: string) => void;
 }
 
 const defaultRule: PrivacyRule = {
@@ -108,5 +109,9 @@ export const usePrivacySettingsStore = create<PrivacySettingsState>((set) => ({
         ? state
         : { blockedByUserIds: [...state.blockedByUserIds, userId] }
     ),
+  removeBlockedByUser: (userId) =>
+    set((state) => ({
+      blockedByUserIds: state.blockedByUserIds.filter((id) => id !== userId),
+    })),
 }));
 

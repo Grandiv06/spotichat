@@ -6,6 +6,7 @@ interface ChatsState {
   unreadByChatId: Record<string, number>;
   setChats: (chats: Chat[]) => void;
   updateLastMessage: (chatId: string, lastMessage: Message) => void;
+  setChatBlockedByThem: (participantId: string, blockedByThem: boolean) => void;
   addUnread: (chatId: string, count?: number) => void;
   clearUnread: (chatId: string) => void;
   getUnreadCount: (chatId: string) => number;
@@ -29,6 +30,13 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
       });
       return { chats: updated };
     }),
+
+  setChatBlockedByThem: (participantId, blockedByThem) =>
+    set((s) => ({
+      chats: s.chats.map((c) =>
+        c.participant?.id === participantId ? { ...c, blockedByThem } : c,
+      ),
+    })),
 
   addUnread: (chatId, count = 1) =>
     set((s) => ({

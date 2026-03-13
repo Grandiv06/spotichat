@@ -140,12 +140,19 @@ export function MainLayout() {
         // ignore
       }
     })();
-    const unsub = onSocketEvent("user:blocked-you", (data: { byUserId?: string }) => {
+    const unsubBlocked = onSocketEvent("user:blocked-you", (data: { byUserId?: string }) => {
       if (data?.byUserId) addBlockedByUser(data.byUserId);
+    });
+    const unsubUnblocked = onSocketEvent("user:unblocked-you", (data: { byUserId?: string }) => {
+      if (data?.byUserId) {
+        usePrivacySettingsStore.getState().removeBlockedByUser(data.byUserId);
+        useChatsStore.getState().setChatBlockedByThem(data.byUserId, false);
+      }
     });
     return () => {
       cancelled = true;
-      unsub();
+      unsubBlocked();
+      unsubUnblocked();
     };
   }, [isAuthenticated]);
 

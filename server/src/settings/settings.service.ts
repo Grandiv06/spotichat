@@ -124,6 +124,16 @@ export class SettingsService {
       blockedUserId: new Types.ObjectId(targetUserId),
     });
     if (result.deletedCount === 0) throw new NotFoundException('Block not found');
+
+    // Notify the unblocked user in real time so they see profile / can send again immediately
+    try {
+      this.chatGateway.server
+        .to(`user:${targetUserId}`)
+        .emit('user:unblocked-you', { byUserId: userId });
+    } catch {
+      // ignore emit errors
+    }
+
     return { success: true };
   }
 
