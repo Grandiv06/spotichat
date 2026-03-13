@@ -75,6 +75,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (sockets.size === 0) {
           this.onlineUsers.delete(userId);
           this.onlineUsersService.remove(userId);
+          this.chatService.updateUserLastSeen(userId).catch(() => {});
           this.server.emit('user:offline', { userId });
         }
       }

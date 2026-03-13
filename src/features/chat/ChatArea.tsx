@@ -6,6 +6,7 @@ import { InChatSearch } from "./InChatSearch";
 import { chatService } from "@/services/chat.service";
 import type { Message, Chat } from "@/services/chat.service";
 import { useAuthStore } from "@/store/auth.store";
+import { useChatsStore } from "@/store/chats.store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { playSendSound } from "@/lib/sounds";
@@ -26,6 +27,7 @@ interface ChatAreaProps {
 
 export function ChatArea({ chatId }: ChatAreaProps) {
   const { user } = useAuthStore();
+  const updateLastMessage = useChatsStore((s) => s.updateLastMessage);
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -213,6 +215,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         );
         return merged;
       });
+
+      updateLastMessage(chatId, sentMsg);
 
       setTimeout(() => {
         setMessages((prev) =>

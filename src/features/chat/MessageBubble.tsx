@@ -173,7 +173,7 @@ export function MessageBubble({
                     (message.status === 'delivered' || message.status === 'seen')
                       ? "opacity-100 translate-y-0"
                       : "opacity-0 translate-y-1",
-                    message.status === 'seen' && "text-blue-400",
+                    message.status === 'seen' && "text-blue-500 dark:text-blue-400",
                   )}
                 />
               </span>

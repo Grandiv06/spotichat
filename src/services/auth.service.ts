@@ -8,6 +8,7 @@ export interface User {
   username?: string;
   avatar?: string;
   bio?: string;
+  lastSeenAt?: string;
 }
 
 export const authService = {

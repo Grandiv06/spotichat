@@ -52,6 +52,7 @@ export class ChatService {
               name: participant.name,
               username: participant.username,
               avatar: participant.avatar,
+              lastSeenAt: (participant as any).lastSeenAt?.toISOString?.(),
             }
           : null,
         lastMessage: lastMsg
@@ -244,5 +245,12 @@ export class ChatService {
     const chat = await this.chatModel.findById(chatId);
     if (!chat) return [];
     return chat.participants.map((p) => p.toString());
+  }
+
+  async updateUserLastSeen(userId: string): Promise<void> {
+    await this.userModel.updateOne(
+      { _id: new Types.ObjectId(userId) },
+      { $set: { lastSeenAt: new Date() } },
+    );
   }
 }

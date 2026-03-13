@@ -25,6 +25,9 @@ export class User {
 
   @Prop()
   passcodeHash?: string;
+
+  @Prop({ type: Date })
+  lastSeenAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

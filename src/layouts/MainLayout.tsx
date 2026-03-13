@@ -28,7 +28,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Stories } from "@/features/chat/Stories";
-import { OnlineRow } from "@/features/chat/OnlineRow";
 
 export function MainLayout() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
@@ -218,8 +217,6 @@ export function MainLayout() {
               collapsed === true => height 0, opacity 0 (hidden)
               collapsed === false => full height & opacity (visible)
             */}
-            {/* Online users row */}
-            <OnlineRow />
             {/* Stories row */}
             <div
               className="px-2 pt-2 bg-sidebar text-sidebar-foreground"
