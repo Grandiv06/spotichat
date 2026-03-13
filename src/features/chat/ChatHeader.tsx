@@ -45,14 +45,20 @@ export function ChatHeader({
     const diffMins = Math.floor(diffMs / 60000);
     if (diffMins < 1) return "last seen recently";
     if (diffMins < 60) return "last seen recently";
-    const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const timeStr = d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     const isToday = d.toDateString() === now.toDateString();
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     const isYesterday = d.toDateString() === yesterday.toDateString();
     if (isToday) return `last seen today at ${timeStr}`;
     if (isYesterday) return `last seen yesterday at ${timeStr}`;
-    const dateStr = d.toLocaleDateString([], { day: "numeric", month: "short" });
+    const dateStr = d.toLocaleDateString([], {
+      day: "numeric",
+      month: "short",
+    });
     return `last seen ${dateStr} at ${timeStr}`;
   };
 
@@ -60,7 +66,7 @@ export function ChatHeader({
     <>
       <div className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 bg-background z-10 chat-header">
         <div
-          className="flex items-center gap-1 sm:gap-3 cursor-pointer"
+          className="flex items-center gap-2  sm:gap-2 cursor-pointer"
           onClick={() => setProfileOpen(true)}
         >
           <Button
@@ -76,7 +82,9 @@ export function ChatHeader({
           </Button>
           <div className="relative">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={isRestrictivePrivacyUser ? undefined : participant.avatar} />
+              <AvatarImage
+                src={isRestrictivePrivacyUser ? undefined : participant.avatar}
+              />
               <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
             </Avatar>
             {showOnline && (
@@ -86,10 +94,18 @@ export function ChatHeader({
               />
             )}
           </div>
-          <div className="flex flex-col pl-2">
+          <div className="flex flex-col">
             <span className="font-semibold">{participant.name}</span>
-            <span className={showOnline ? "text-xs text-green-600 dark:text-green-400" : "text-xs text-muted-foreground"}>
-              {isRestrictivePrivacyUser ? "last seen a long time ago" : lastSeenLabel()}
+            <span
+              className={
+                showOnline
+                  ? "text-xs text-green-600 dark:text-green-400"
+                  : "text-xs text-muted-foreground"
+              }
+            >
+              {isRestrictivePrivacyUser
+                ? "last seen a long time ago"
+                : lastSeenLabel()}
             </span>
           </div>
         </div>
