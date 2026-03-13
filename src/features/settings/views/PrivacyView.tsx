@@ -5,7 +5,7 @@ import { usePrivacySettingsStore } from '../store/privacy.store';
 import { useSettingsStore } from '../store/settings.store';
 
 export function PrivacyView() {
-  const { phoneNumber, lastSeen, profilePhoto, blockedUsers } =
+  const { phoneNumber, lastSeen, profilePhoto, blockedUserIds } =
     usePrivacySettingsStore();
   const { navigate } = useSettingsStore();
 
@@ -53,7 +53,7 @@ export function PrivacyView() {
       <SettingsSection title="Blocked">
         <SettingsRow 
           label="Blocked Users" 
-          description={`${blockedUsers.length} users`} 
+          description={`${blockedUserIds.length} users`} 
           onClick={() => navigate('privacy-blocked-users')}
         />
       </SettingsSection>

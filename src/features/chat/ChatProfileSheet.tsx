@@ -26,7 +26,7 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
 
-  const { blockedUsers, setBlockedUsers } = usePrivacySettingsStore();
+  const { blockedUserIds, setBlockedUsers } = usePrivacySettingsStore();
 
   // Mock data for photo gallery based on user
   const photos = user ? [
@@ -194,13 +194,23 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
               <Separator className="my-2" />
 
               {/* Danger Actions */}
-              <div
-                className="px-5 py-3 flex items-center gap-4 hover:bg-destructive/10 text-destructive transition-colors cursor-pointer"
-                onClick={() => setIsBlockDialogOpen(true)}
-              >
-                <Ban className="h-5 w-5" />
-                <span className="text-[15px]">Block User</span>
-              </div>
+              {blockedUserIds.includes(user.id) ? (
+                <div
+                  className="px-5 py-3 flex items-center gap-4 hover:bg-primary/10 text-primary transition-colors cursor-pointer"
+                  onClick={() => setBlockedUsers(blockedUserIds.filter((id) => id !== user.id))}
+                >
+                  <Ban className="h-5 w-5" />
+                  <span className="text-[15px]">Unblock User</span>
+                </div>
+              ) : (
+                <div
+                  className="px-5 py-3 flex items-center gap-4 hover:bg-destructive/10 text-destructive transition-colors cursor-pointer"
+                  onClick={() => setIsBlockDialogOpen(true)}
+                >
+                  <Ban className="h-5 w-5" />
+                  <span className="text-[15px]">Block User</span>
+                </div>
+              )}
               
               <div
                 className="px-5 py-3 flex items-center gap-4 hover:bg-destructive/10 text-destructive transition-colors cursor-pointer"
@@ -311,9 +321,8 @@ export function ChatProfileSheet({ user, isOpen, onOpenChange }: ChatProfileShee
             <Button
               variant="destructive"
               onClick={() => {
-                const existingIds = blockedUsers.map((u) => u.id);
-                if (!existingIds.includes(user.id)) {
-                  setBlockedUsers([...existingIds, user.id]);
+                if (!blockedUserIds.includes(user.id)) {
+                  setBlockedUsers([...blockedUserIds, user.id]);
                 }
                 setIsBlockDialogOpen(false);
                 onOpenChange(false);

@@ -39,7 +39,7 @@ export function AddContactModal() {
             <Label htmlFor="contactPhone">Phone Number</Label>
             <Input 
               id="contactPhone" 
-              placeholder="+1 234 567 890" 
+              placeholder="09123456789" 
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />

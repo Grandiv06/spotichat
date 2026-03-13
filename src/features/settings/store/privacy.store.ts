@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { mockedContacts } from '../mock/settings.mock';
 
 export type PrivacyScopeOption = 'Everybody' | 'My Contacts' | 'Nobody';
 
@@ -23,7 +22,7 @@ interface PrivacySettingsState {
   phoneNumber: PrivacyRule;
   lastSeen: PrivacyRule;
   profilePhoto: PrivacyRule;
-  blockedUsers: { id: string; name: string; username?: string }[];
+  blockedUserIds: string[];
 
   // UI helpers for contacts picker
   pickerField?: PrivacyField;
@@ -56,9 +55,7 @@ export const usePrivacySettingsStore = create<PrivacySettingsState>((set) => ({
     ...defaultRule,
     option: 'My Contacts',
   },
-  blockedUsers: [
-    { id: 'u12', name: 'John Doe', username: '@johnd' },
-  ],
+  blockedUserIds: [],
   pickerField: undefined,
   pickerMode: undefined,
 
@@ -99,17 +96,6 @@ export const usePrivacySettingsStore = create<PrivacySettingsState>((set) => ({
       pickerMode: undefined,
     })),
   setBlockedUsers: (contactIds) =>
-    set(() => {
-      const fromContacts = mockedContacts.filter((c) =>
-        contactIds.includes(c.id),
-      );
-      return {
-        blockedUsers: fromContacts.map((c) => ({
-          id: c.id,
-          name: c.name,
-          username: c.username,
-        })),
-      };
-    }),
+    set(() => ({ blockedUserIds: contactIds })),
 }));
 

@@ -61,7 +61,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     null,
   );
 
-  const { blockedUsers, setBlockedUsers } = usePrivacySettingsStore();
+  const { blockedUserIds, setBlockedUsers } = usePrivacySettingsStore();
 
   // Matches (reversed so index 0 is the newest match)
   const matchedMessages = messages
@@ -280,17 +280,14 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
   const isBlockedByMe = useMemo(
     () =>
-      !!(
-        chat &&
-        blockedUsers.some((u) => u.id === chat.participant.id)
-      ),
-    [chat, blockedUsers],
+      !!(chat && blockedUserIds.includes(chat.participant.id)),
+    [chat, blockedUserIds],
   );
 
   const isChatDisabled = isLoading || !chat || isCallOpen || isBlockedByMe || isRestrictedByOther;
 
   const disabledPlaceholder = isBlockedByMe
-    ? "You blocked this user. Unblock them from Privacy settings to send messages."
+    ? "You blocked this user."
     : isRestrictedByOther
     ? "You can't send messages to this user."
     : undefined;
@@ -417,9 +414,13 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         <ChatHeader
           participant={chat.participant}
           activity={otherActivity}
+          isBlockedByMe={isBlockedByMe}
           onToggleSearch={() => setIsSearching(true)}
           onStartCall={() => setIsCallOpen(true)}
           onBlockUser={() => setIsBlockDialogOpen(true)}
+          onUnblockUser={() =>
+            setBlockedUsers(blockedUserIds.filter((id) => id !== chat.participant.id))
+          }
         />
       ) : (
         <div className="h-16 border-b bg-card flex items-center px-4 animate-pulse">
@@ -604,6 +605,23 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         )}
       </div>
 
+      {isBlockedByMe && chat && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2 bg-muted/50 border-t border-border">
+          <span className="text-sm text-muted-foreground">
+            You blocked this user. Unblock to send messages.
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setBlockedUsers(blockedUserIds.filter((id) => id !== chat.participant.id))
+            }
+          >
+            Unblock
+          </Button>
+        </div>
+      )}
+
       <MessageInput
         chatId={chatId}
         onSend={handleSend}
@@ -669,9 +687,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
               variant="destructive"
               onClick={() => {
                 if (!chat) return;
-                const existingIds = blockedUsers.map((u) => u.id);
-                if (!existingIds.includes(chat.participant.id)) {
-                  setBlockedUsers([...existingIds, chat.participant.id]);
+                if (!blockedUserIds.includes(chat.participant.id)) {
+                  setBlockedUsers([...blockedUserIds, chat.participant.id]);
                 }
                 setIsBlockDialogOpen(false);
               }}

@@ -19,6 +19,7 @@ import { connectSocket, getSocket } from "@/lib/socket";
 import { chatService } from "@/services/chat.service";
 
 import { apiFetch } from "@/lib/api";
+import { contactService } from "@/services/contact.service";
 import { useOnlineStore } from "@/store/online.store";
 import { useMessageStatusStore } from "@/store/message-status.store";
 import { ChatList } from "@/features/chat/ChatList";
@@ -36,7 +37,7 @@ import { Stories } from "@/features/chat/Stories";
 export function MainLayout() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [storiesCollapsed, setStoriesCollapsed] = useState(false);
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
 
   // Connect WebSocket when user is authenticated (e.g. after refresh)
   useEffect(() => {
@@ -120,6 +121,27 @@ export function MainLayout() {
       unsubStatus();
     };
   }, [isAuthenticated]);
+
+  // Ensure Soroush has at least Ali in contacts (dev seed convenience)
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    if (user.phone !== "+989123456789") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const contacts = await contactService.getContacts();
+        if (cancelled) return;
+        if (Array.isArray(contacts) && contacts.length === 0) {
+          await contactService.addContact("+989000000002");
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?.id, user?.phone]);
 
   const {
     setAddContactOpen,

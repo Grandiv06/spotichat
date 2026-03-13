@@ -18,17 +18,21 @@ import {
 interface ChatHeaderProps {
   participant: User;
   activity?: "typing" | "voice" | "video" | null;
+  isBlockedByMe?: boolean;
   onToggleSearch?: () => void;
   onStartCall?: () => void;
   onBlockUser?: () => void;
+  onUnblockUser?: () => void;
 }
 
 export function ChatHeader({
   participant,
   activity,
+  isBlockedByMe,
   onToggleSearch,
   onStartCall,
   onBlockUser,
+  onUnblockUser,
 }: ChatHeaderProps) {
   const { setSelectedChatId } = useChatStore();
   const { isOnline } = useOnlineStore();
@@ -155,12 +159,21 @@ export function ChatHeader({
               <DropdownMenuItem>Mute Notifications</DropdownMenuItem>
               <DropdownMenuItem>Clear Chat</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={onBlockUser}
-              >
-                Block User
-              </DropdownMenuItem>
+              {isBlockedByMe ? (
+                <DropdownMenuItem
+                  className="text-primary focus:text-primary"
+                  onClick={onUnblockUser}
+                >
+                  Unblock User
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={onBlockUser}
+                >
+                  Block User
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem className="text-destructive focus:text-destructive">
                 Delete Chat
               </DropdownMenuItem>

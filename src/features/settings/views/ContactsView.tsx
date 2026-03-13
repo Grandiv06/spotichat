@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SettingsSection } from '../components/SettingsSection';
 import { SettingsRow } from '../components/SettingsRow';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Search, UserPlus, MoreVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { mockedContacts } from '../mock/settings.mock';
+import { contactService } from '@/services/contact.service';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,41 +20,68 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
-type Contact = (typeof mockedContacts)[number];
+export type ContactItem = {
+  id: string;
+  contactId: string;
+  name: string;
+  phone: string;
+  username?: string;
+  avatar?: string;
+  lastSeen?: string;
+};
 
 export function ContactsView() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [contacts, setContacts] = useState<Contact[]>(mockedContacts);
-  const [viewContact, setViewContact] = useState<Contact | null>(null);
-  const [editContact, setEditContact] = useState<Contact | null>(null);
+  const [contacts, setContacts] = useState<ContactItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [viewContact, setViewContact] = useState<ContactItem | null>(null);
+  const [editContact, setEditContact] = useState<ContactItem | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [formState, setFormState] = useState<
-    Pick<Contact, 'name' | 'phone' | 'username'>
-  >({
+  const [formState, setFormState] = useState<{ name: string; phone: string }>({
     name: '',
     phone: '',
-    username: '',
   });
 
   const isEditing = !!editContact;
 
+  useEffect(() => {
+    let mounted = true;
+    setIsLoading(true);
+    contactService
+      .getContacts()
+      .then((data) => {
+        if (!mounted) return;
+        setContacts(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setContacts([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setIsLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const filteredContacts = contacts.filter(
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.phone.includes(searchQuery)
+      (c.phone && c.phone.includes(searchQuery))
   );
 
   const resetForm = () => {
-    setFormState({ name: '', phone: '', username: '' });
+    setFormState({ name: '', phone: '' });
     setEditContact(null);
   };
 
-  const openEdit = (contact: Contact) => {
+  const openEdit = (contact: ContactItem) => {
     setEditContact(contact);
     setFormState({
       name: contact.name,
       phone: contact.phone,
-      username: contact.username,
     });
     setIsAddOpen(true);
   };
@@ -64,23 +91,31 @@ export function ContactsView() {
     setIsAddOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formState.name.trim() || !formState.phone.trim()) return;
+  const handleSave = async () => {
+    if (!formState.phone.trim()) return;
 
     if (isEditing && editContact) {
       setContacts((prev) =>
         prev.map((c) =>
-          c.id === editContact.id ? { ...c, ...formState } : c
+          c.id === editContact.id ? { ...c, name: formState.name, phone: formState.phone } : c
         )
       );
     } else {
-      const newContact: Contact = {
-        id: Date.now().toString(),
-        lastSeen: 'last seen recently',
-        avatar: '',
-        ...formState,
-      };
-      setContacts((prev) => [newContact, ...prev]);
+      try {
+        const added = (await contactService.addContact(formState.phone)) as {
+          id: string;
+          contactId: string;
+          name: string;
+          phone: string;
+          avatar?: string;
+        };
+        setContacts((prev) => [
+          { ...added, lastSeen: 'recently' } as ContactItem,
+          ...prev,
+        ]);
+      } catch {
+        // keep dialog open on error; caller could show toast
+      }
     }
 
     setIsAddOpen(false);
@@ -111,54 +146,60 @@ export function ContactsView() {
 
       <div className="px-4 py-2 flex-1">
         <SettingsSection title={`All Contacts (${contacts.length})`}>
-          {filteredContacts.map((contact) => (
-            <SettingsRow
-              key={contact.id}
-              label={contact.name}
-              description={contact.lastSeen}
-              icon={
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={contact.avatar} />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {contact.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-              }
-              rightElement={
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setViewContact(contact);
-                      }}
-                    >
-                      View Profile
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEdit(contact);
-                      }}
-                    >
-                      Edit Contact
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              }
-            />
-          ))}
-          {filteredContacts.length === 0 && (
+          {isLoading ? (
+            <div className="p-6 text-center text-muted-foreground">
+              Loading contacts...
+            </div>
+          ) : (
+            filteredContacts.map((contact) => (
+              <SettingsRow
+                key={contact.id}
+                label={contact.name}
+                description={contact.lastSeen}
+                icon={
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={contact.avatar} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {contact.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                }
+                rightElement={
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewContact(contact);
+                        }}
+                      >
+                        View Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(contact);
+                        }}
+                      >
+                        Edit Contact
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                }
+              />
+            ))
+          )}
+          {!isLoading && filteredContacts.length === 0 && (
             <div className="p-6 text-center text-muted-foreground">
               No contacts found.
             </div>
@@ -190,11 +231,6 @@ export function ContactsView() {
                 <p className="text-sm text-muted-foreground">
                   {viewContact.phone}
                 </p>
-                {viewContact.username && (
-                  <p className="text-sm text-muted-foreground">
-                    {viewContact.username}
-                  </p>
-                )}
                 <p className="text-xs text-muted-foreground mt-2">
                   {viewContact.lastSeen}
                 </p>
@@ -238,24 +274,10 @@ export function ContactsView() {
               <Label htmlFor="contactPhone">Phone Number</Label>
               <Input
                 id="contactPhone"
-                placeholder="+1 234 567 890"
+                placeholder="09123456789"
                 value={formState.phone}
                 onChange={(e) =>
                   setFormState((prev) => ({ ...prev, phone: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contactUsername">Username (optional)</Label>
-              <Input
-                id="contactUsername"
-                placeholder="@username"
-                value={formState.username}
-                onChange={(e) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    username: e.target.value,
-                  }))
                 }
               />
             </div>
@@ -272,7 +294,7 @@ export function ContactsView() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!formState.name.trim() || !formState.phone.trim()}
+              disabled={!formState.phone.trim()}
             >
               Save
             </Button>
