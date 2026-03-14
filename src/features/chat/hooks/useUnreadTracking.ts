@@ -17,7 +17,7 @@ interface UseUnreadTrackingResult {
 }
 
 const BOTTOM_THRESHOLD_PX = 80;
-const SEEN_INTERSECTION_THRESHOLD = 0.6;
+const SEEN_INTERSECTION_THRESHOLD = 0.35;
 
 export function useUnreadTracking({
   chatId,
@@ -102,7 +102,7 @@ export function useUnreadTracking({
       {
         root: container,
         threshold: [SEEN_INTERSECTION_THRESHOLD],
-        rootMargin: "0px 0px -8% 0px",
+        rootMargin: "0px",
       },
     );
 
@@ -114,6 +114,36 @@ export function useUnreadTracking({
 
     return () => observer.disconnect();
   }, [containerRef, onMessagesSeen, unreadIds, unreadIdsKey]);
+
+  // Safety net: when user is already at bottom, ensure visible tail unread messages become seen.
+  // This prevents the last message from getting stuck as unread due to strict observer thresholds.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || unreadIds.length === 0) return;
+    if (!isAtBottom()) return;
+
+    const rootRect = container.getBoundingClientRect();
+    const seenNow: string[] = [];
+
+    for (const id of unreadIds) {
+      if (seenInViewportRef.current.has(id)) continue;
+      const el = container.querySelector<HTMLElement>(`[data-message-id="${id}"]`);
+      if (!el) continue;
+
+      const rect = el.getBoundingClientRect();
+      const visibleTop = Math.max(rect.top, rootRect.top);
+      const visibleBottom = Math.min(rect.bottom, rootRect.bottom);
+      const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+      const ratio = visibleHeight / Math.max(rect.height, 1);
+
+      if (ratio >= 0.2) {
+        seenInViewportRef.current.add(id);
+        seenNow.push(id);
+      }
+    }
+
+    if (seenNow.length > 0) onMessagesSeen(seenNow);
+  }, [containerRef, unreadIds, unreadIdsKey, onMessagesSeen, isAtBottom]);
 
   return {
     unreadCount,
