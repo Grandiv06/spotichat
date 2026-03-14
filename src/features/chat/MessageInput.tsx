@@ -14,11 +14,22 @@ interface MessageInputProps {
   onCancelReply?: () => void;
   disabled?: boolean;
   disabledPlaceholder?: string;
+  onInputFocus?: () => void;
+  onInputBlur?: () => void;
 }
 
 type RecordingState = 'idle' | 'holding' | 'locked';
 
-export function MessageInput({ chatId, onSend, replyingToMessage, onCancelReply, disabled, disabledPlaceholder }: MessageInputProps) {
+export function MessageInput({
+  chatId,
+  onSend,
+  replyingToMessage,
+  onCancelReply,
+  disabled,
+  disabledPlaceholder,
+  onInputFocus,
+  onInputBlur,
+}: MessageInputProps) {
   const [text, setText] = useState('');
   const [mediaType, setMediaType] = useState<'voice' | 'video'>('voice');
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
@@ -264,6 +275,8 @@ export function MessageInput({ chatId, onSend, replyingToMessage, onCancelReply,
                   }
                 }}
                 onKeyDown={handleKeyDown}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
                 placeholder={disabled ? (disabledPlaceholder || "Connecting...") : "Write a message..."}
                 className="w-full bg-transparent border-none outline-none resize-none max-h-32 text-base placeholder:text-muted-foreground/70 disabled:opacity-50"
                 rows={1}

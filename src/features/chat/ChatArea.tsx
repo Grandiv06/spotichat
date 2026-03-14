@@ -48,6 +48,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const unreadSeparatorRef = useRef<HTMLDivElement>(null);
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const isComposerFocusedRef = useRef(false);
   const initialScrollDoneRef = useRef(false);
   const pendingSeenIdsRef = useRef<Set<string>>(new Set());
   const seenFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -215,6 +216,33 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       });
     });
   }, []);
+
+  const keepLatestMessageAboveKeyboard = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const handleViewportChange = () => {
+      if (!isComposerFocusedRef.current) return;
+      keepLatestMessageAboveKeyboard();
+    };
+
+    viewport.addEventListener("resize", handleViewportChange);
+    viewport.addEventListener("scroll", handleViewportChange);
+    return () => {
+      viewport.removeEventListener("resize", handleViewportChange);
+      viewport.removeEventListener("scroll", handleViewportChange);
+    };
+  }, [keepLatestMessageAboveKeyboard]);
 
   const getStableMessageKey = useCallback((messageId: string) => {
     return stableRenderKeyByMessageIdRef.current.get(messageId) ?? messageId;
@@ -823,6 +851,13 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           onCancelReply={() => setReplyingToMessage(null)}
           disabled={isChatDisabled}
           disabledPlaceholder={disabledPlaceholder}
+          onInputFocus={() => {
+            isComposerFocusedRef.current = true;
+            keepLatestMessageAboveKeyboard();
+          }}
+          onInputBlur={() => {
+            isComposerFocusedRef.current = false;
+          }}
         />
       </div>
 
