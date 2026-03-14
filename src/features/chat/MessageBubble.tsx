@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { memo, useState, useRef } from 'react';
 import { Check, CheckCheck, Clock, Copy, Reply, Pin, Forward, Trash2 } from 'lucide-react';
 import type { Message } from '@/services/chat.service';
 import { cn } from '@/lib/utils';
@@ -32,7 +32,7 @@ function escapeRegExp(string: string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
 
-export function MessageBubble({ 
+function MessageBubbleComponent({ 
   message, 
   searchQuery, 
   isHighlightedMatch,
@@ -258,3 +258,18 @@ export function MessageBubble({
   </div>
   );
 }
+
+function areEqual(prev: MessageBubbleProps, next: MessageBubbleProps) {
+  const prevReplyId = prev.repliedMessage?.id;
+  const nextReplyId = next.repliedMessage?.id;
+
+  return (
+    prev.message === next.message &&
+    prev.searchQuery === next.searchQuery &&
+    prev.isHighlightedMatch === next.isHighlightedMatch &&
+    prevReplyId === nextReplyId
+  );
+}
+
+export const MessageBubble = memo(MessageBubbleComponent, areEqual);
+MessageBubble.displayName = 'MessageBubble';

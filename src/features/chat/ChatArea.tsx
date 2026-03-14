@@ -87,6 +87,10 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     .filter((m) => m.text?.toLowerCase().includes(searchQuery.toLowerCase()))
     .reverse();
   const matchCount = searchQuery ? matchedMessages.length : 0;
+  const messageById = useMemo(
+    () => new Map(messages.map((m) => [m.id, m] as const)),
+    [messages],
+  );
 
   useEffect(() => {
     setCurrentMatchIndex(0);
@@ -719,7 +723,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                     onReply={() => setReplyingToMessage(msg)}
                     repliedMessage={
                       msg.replyToId
-                        ? messages.find((m) => m.id === msg.replyToId)
+                        ? messageById.get(msg.replyToId)
                         : undefined
                     }
                     onDeleteToggle={() => setMessageToDelete(msg)}
