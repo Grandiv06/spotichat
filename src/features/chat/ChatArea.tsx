@@ -43,6 +43,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const setUnreadCount = useChatsStore((s) => s.setUnreadCount);
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const unreadSeparatorRef = useRef<HTMLDivElement>(null);
@@ -165,13 +166,17 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   }, [chatId, user?.id]);
 
   useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
     seenMessageIdsRef.current = new Set();
     initialScrollDoneRef.current = false;
     setEntryUnreadIds(new Set());
     setEntryUnreadBoundaryId(null);
   }, [chatId]);
 
-  const isNearBottom = useCallback((threshold = 80) => {
+  const isNearBottom = useCallback((threshold = 120) => {
     const container = messagesContainerRef.current;
     if (!container) return true;
     return (
@@ -225,15 +230,12 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   useEffect(() => {
     const unsubMessage = chatService.onNewMessage((message) => {
       if (message.chatId !== chatId) return;
+      if (messagesRef.current.some((m) => m.id === message.id)) return;
 
       const isFromOther = message.senderId !== user?.id;
-      const wasAtBottom = isNearBottom(88);
-      let didAppend = false;
-      let didReplaceTemp = false;
+      const wasAtBottom = isNearBottom(140);
 
       setMessages((prev) => {
-        if (prev.some((m) => m.id === message.id)) return prev;
-
         // Reconcile realtime echo of our own optimistic message in-place.
         if (!isFromOther) {
           const tempIndex = prev.findIndex(
@@ -249,16 +251,13 @@ export function ChatArea({ chatId }: ChatAreaProps) {
             stableRenderKeyByMessageIdRef.current.set(message.id, tempId);
             const next = [...prev];
             next[tempIndex] = message;
-            didReplaceTemp = true;
             return next;
           }
         }
-
-        didAppend = true;
         return [...prev, message];
       });
 
-      if ((didAppend || didReplaceTemp) && wasAtBottom) {
+      if (wasAtBottom) {
         // Prevent scroll jitter during rapid outgoing messages.
         stickToBottom(isFromOther);
       }
