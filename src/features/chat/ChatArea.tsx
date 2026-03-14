@@ -50,6 +50,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const initialScrollDoneRef = useRef(false);
   const pendingSeenIdsRef = useRef<Set<string>>(new Set());
   const seenFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAutoScrollAtRef = useRef(0);
+  const stableRenderKeyByMessageIdRef = useRef<Map<string, string>>(new Map());
   const [entryUnreadIds, setEntryUnreadIds] = useState<Set<string>>(new Set());
   const [entryUnreadBoundaryId, setEntryUnreadBoundaryId] = useState<string | null>(null);
 
@@ -169,6 +171,47 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     setEntryUnreadBoundaryId(null);
   }, [chatId]);
 
+  const isNearBottom = useCallback((threshold = 80) => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    return (
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      threshold
+    );
+  }, []);
+
+  const stickToBottom = useCallback((preferSmooth = true) => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const now = performance.now();
+    const shouldSmooth =
+      preferSmooth && now - lastAutoScrollAtRef.current > 280;
+    lastAutoScrollAtRef.current = now;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: shouldSmooth ? "smooth" : "auto",
+        });
+      });
+    });
+  }, []);
+
+  const getStableMessageKey = useCallback((messageId: string) => {
+    return stableRenderKeyByMessageIdRef.current.get(messageId) ?? messageId;
+  }, []);
+
+  useEffect(() => {
+    // Cleanup stale stable keys to avoid unbounded growth.
+    const activeIds = new Set(messages.map((m) => m.id));
+    const map = stableRenderKeyByMessageIdRef.current;
+    for (const id of map.keys()) {
+      if (!activeIds.has(id)) map.delete(id);
+    }
+  }, [messages]);
+
   // Join chat room so we receive typing/status events from the other user
   useEffect(() => {
     if (!chatId) return;
@@ -184,28 +227,40 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       if (message.chatId !== chatId) return;
 
       const isFromOther = message.senderId !== user?.id;
-
-      const container = messagesContainerRef.current;
-      const wasAtBottom = container
-        ? container.scrollHeight - container.scrollTop - container.clientHeight < 80
-        : true;
+      const wasAtBottom = isNearBottom(88);
+      let didAppend = false;
+      let didReplaceTemp = false;
 
       setMessages((prev) => {
         if (prev.some((m) => m.id === message.id)) return prev;
+
+        // Reconcile realtime echo of our own optimistic message in-place.
+        if (!isFromOther) {
+          const tempIndex = prev.findIndex(
+            (m) =>
+              m.id.startsWith("m_temp_") &&
+              m.senderId === message.senderId &&
+              m.type === message.type &&
+              (m.text ?? "") === (message.text ?? "") &&
+              (m.duration ?? 0) === (message.duration ?? 0),
+          );
+          if (tempIndex > -1) {
+            const tempId = prev[tempIndex].id;
+            stableRenderKeyByMessageIdRef.current.set(message.id, tempId);
+            const next = [...prev];
+            next[tempIndex] = message;
+            didReplaceTemp = true;
+            return next;
+          }
+        }
+
+        didAppend = true;
         return [...prev, message];
       });
 
-      // فقط وقتی کاربر پایین چت بود بعد از پیام جدید اسکرول کن (مثل تلگرام)
-      if (container && wasAtBottom) {
-        const scrollToBottom = () => {
-          container.scrollTo({
-            top: container.scrollHeight,
-            behavior: "smooth",
-          });
-        };
-        requestAnimationFrame(() => {
-          requestAnimationFrame(scrollToBottom);
-        });
+      if ((didAppend || didReplaceTemp) && wasAtBottom) {
+        // Prevent scroll jitter during rapid outgoing messages.
+        stickToBottom(isFromOther);
       }
 
       if (isFromOther) {
@@ -225,7 +280,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       unsubMessage();
       unsubStatus();
     };
-  }, [chatId, user?.id]);
+  }, [chatId, user?.id, isNearBottom, stickToBottom]);
 
   // Listen for typing / recording events from the other user (Telegram-style).
   // Each typing:start resets the hide timer so the indicator stays while they keep sending heartbeats.
@@ -376,7 +431,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     ? "You can't send messages to this user."
     : undefined;
 
-  const handleSend = async (
+  const handleSend = useCallback(async (
     text?: string,
     type: "text" | "voice" | "video" | "file" = "text",
     duration?: number,
@@ -386,6 +441,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
     // We only need text for actual text messages
     if (type === "text" && (!text || !text.trim())) return;
+
+    const wasAtBottomBeforeSend = isNearBottom(96);
 
     const newMsgObj: Omit<Message, "id" | "createdAt" | "status"> = {
       chatId,
@@ -404,17 +461,9 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
     // 1. Optimistic UI update
     setMessages((prev) => [...prev, optimisticMsg]);
-    
-    // Smooth scroll for our own sending message
-    setTimeout(() => {
-      const container = messagesContainerRef.current;
-      if (container) {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: "smooth",
-        });
-      }
-    }, 50);
+    if (wasAtBottomBeforeSend) {
+      stickToBottom(false);
+    }
 
     // Play send sound immediately on optimistic send
     playSendSound();
@@ -423,19 +472,22 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       // 2. Network Request
       const sentMsg = await chatService.sendMessage(newMsgObj);
 
-      // 3. Replace temp with confirmed message and ensure no duplicates
+      // 3. Replace temp in-place to keep list stable during fast sends.
       setMessages((prev) => {
-        // Filter out the temp message
-        const withoutTemp = prev.filter((m) => m.id !== tempId);
-        
-        // If the broadcast (onNewMessage) already added the real message, 
-        // just return the list without temp.
-        if (withoutTemp.some((m) => m.id === sentMsg.id)) {
-          return withoutTemp;
+        const tempIndex = prev.findIndex((m) => m.id === tempId);
+        if (tempIndex === -1) {
+          if (prev.some((m) => m.id === sentMsg.id)) return prev;
+          return [...prev, sentMsg];
         }
-        
-        // Otherwise add the confirmed message
-        return [...withoutTemp, sentMsg];
+        if (
+          prev.some((m, idx) => m.id === sentMsg.id && idx !== tempIndex)
+        ) {
+          return prev.filter((m) => m.id !== tempId);
+        }
+        stableRenderKeyByMessageIdRef.current.set(sentMsg.id, tempId);
+        const next = [...prev];
+        next[tempIndex] = sentMsg;
+        return next;
       });
 
       updateLastMessage(chatId, sentMsg);
@@ -449,7 +501,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       // Revert optimistic update on failure
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
-  };
+  }, [user, isBlockedByMe, isRestrictedByOther, chatId, updateLastMessage, chat, addBlockedByUser, isNearBottom, stickToBottom]);
 
   const handleToggleReaction = (messageId: string, emoji: string) => {
     if (!user) return;
@@ -644,7 +696,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
             </div>
           ) : (
             messages.map((msg) => (
-              <Fragment key={msg.id}>
+              <Fragment key={getStableMessageKey(msg.id)}>
                 {shouldShowUnreadBoundary && entryUnreadBoundaryId === msg.id && (
                   <div
                     ref={unreadSeparatorRef}

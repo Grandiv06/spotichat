@@ -90,8 +90,7 @@ export function MessageBubble({
       className={cn(
         "flex w-full mb-2",
         isMe ? "justify-end" : "justify-start overflow-hidden",
-        status === "sending" &&
-          "animate-in slide-in-from-bottom-4 fade-in zoom-in-95 duration-300 ease-out",
+        status === "sending" && "message-send-enter",
       )}
     >
       <DropdownMenu>
