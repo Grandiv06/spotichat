@@ -1,18 +1,34 @@
 import { useState, useEffect } from 'react';
+import { Play } from 'lucide-react';
 import { SettingsSection } from '../components/SettingsSection';
 import { SettingsRow } from '../components/SettingsRow';
 import { Switch } from '@/components/ui/switch';
 import { mockedNotificationSettings } from '../mock/settings.mock';
-import { getSendSound, setSendSound, playSendSound, playCallNotificationSound, type SendSoundId } from '@/lib/sounds';
+import { playCallNotificationSound } from '@/lib/sounds';
+import { useSettingsStore } from '../store/settings.store';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
+import {
+  MESSAGE_SOUND_OPTIONS,
+  type MessageSoundId,
+} from '@/lib/notification-sound';
+import { Button } from '@/components/ui/button';
 
 export function NotificationsView() {
   const [settings, setSettings] = useState(mockedNotificationSettings);
-  const [sendSound, setSendSoundState] = useState<SendSoundId>('ding');
   const [callSoundEnabled, setCallSoundEnabled] = useState(true);
+  const messageSound = useSettingsStore((s) => s.messageSound);
+  const setMessageSound = useSettingsStore((s) => s.setMessageSound);
+  const muteAllChats = useSettingsStore((s) => s.muteAllChats);
+  const setMuteAllChats = useSettingsStore((s) => s.setMuteAllChats);
+  const { playPreview } = useNotificationSound();
 
   useEffect(() => {
-    setSendSoundState(getSendSound());
-  }, []);
+    // Keep mocked UI switches in sync for sections that are still local-only.
+    setSettings((prev) => ({
+      ...prev,
+      muteAllChats,
+    }));
+  }, [muteAllChats]);
 
   const handleToggle = (key: keyof typeof mockedNotificationSettings) => {
     setSettings((prev) => ({
@@ -21,33 +37,9 @@ export function NotificationsView() {
     }));
   };
 
-  const soundOptions: { id: SendSoundId; label: string }[] = [
-    { id: 'ding', label: 'Ding (default)' },
-    { id: 'bubble', label: 'Bubble' },
-    { id: 'ping', label: 'Ping' },
-    { id: 'click', label: 'Click' },
-    { id: 'chord', label: 'Chord' },
-    { id: 'retro', label: 'Retro' },
-    { id: 'soft', label: 'Soft' },
-    { id: 'spark', label: 'Spark' },
-    { id: 'drop', label: 'Drop' },
-    { id: 'pop', label: 'Pop' },
-    { id: 'bell', label: 'Bell' },
-    { id: 'pluck', label: 'Pluck' },
-    { id: 'glass', label: 'Glass' },
-    { id: 'rise', label: 'Rise' },
-    { id: 'fall', label: 'Fall' },
-    { id: 'pulse', label: 'Pulse' },
-    { id: 'telegram', label: 'Telegram (file)' },
-  ];
-
-  const handleSelectSendSound = (id: SendSoundId) => {
-    setSendSound(id);
-    setSendSoundState(id);
-    if (id !== 'none') {
-      // Small delay so the user clearly hears the chosen sound
-      setTimeout(() => playSendSound(), 40);
-    }
+  const handleSelectMessageSound = (id: MessageSoundId) => {
+    setMessageSound(id);
+    playPreview(id);
   };
 
   return (
@@ -74,33 +66,34 @@ export function NotificationsView() {
       </SettingsSection>
 
       <SettingsSection title="Message Sound">
-        {soundOptions.map((opt) => (
+        {MESSAGE_SOUND_OPTIONS.map((opt) => (
           <SettingsRow
             key={opt.id}
             label={opt.label}
-            description={opt.id === 'telegram' ? 'Uses /sounds/telegram-send.mp3' : undefined}
-            onClick={() => handleSelectSendSound(opt.id)}
+            onClick={() => handleSelectMessageSound(opt.id)}
             rightElement={
-              <div className="w-4 h-4 rounded-full border border-primary flex items-center justify-center">
-                {sendSound === opt.id && (
-                  <div className="w-2 h-2 rounded-full bg-primary" />
-                )}
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    playPreview(opt.id);
+                  }}
+                  aria-label={`Preview ${opt.label}`}
+                >
+                  <Play className="h-4 w-4" />
+                </Button>
+                <div className="w-4 h-4 rounded-full border border-primary flex items-center justify-center">
+                  {messageSound === opt.id && (
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                  )}
+                </div>
               </div>
             }
           />
         ))}
-        <SettingsRow
-          label="Off"
-          description="Disable send sound"
-          onClick={() => handleSelectSendSound('none')}
-          rightElement={
-            <div className="w-4 h-4 rounded-full border border-primary flex items-center justify-center">
-              {sendSound === 'none' && (
-                <div className="w-2 h-2 rounded-full bg-primary" />
-              )}
-            </div>
-          }
-        />
       </SettingsSection>
 
       <SettingsSection title="Call Notifications">
@@ -133,8 +126,8 @@ export function NotificationsView() {
           label="Mute All Chats" 
           rightElement={
             <Switch 
-              checked={settings.muteAllChats} 
-              onCheckedChange={() => handleToggle('muteAllChats')} 
+              checked={muteAllChats} 
+              onCheckedChange={setMuteAllChats} 
             />
           } 
         />

@@ -549,7 +549,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full bg-accent/5 relative min-h-0">
+    <div className="relative grid h-full w-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-accent/5">
       {/* 
         We render a disabled/skeleton header if loading. 
         Note: The actual ChatHeader requires a participant, if we don't have it yet we can render a minimal fallback or just the structure.
@@ -638,11 +638,11 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         </div>
       )}
 
-      <div className="relative flex-1 min-h-0 flex flex-col mt-16 md:mt-0">
+      <div className="relative min-h-0 overflow-hidden">
         <div
           ref={messagesContainerRef}
           className={cn(
-            "flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar",
+            "h-full min-h-0 overflow-y-auto px-4 py-4 custom-scrollbar",
             pinnedMessage ? "pt-16" : "",
           )}
         >
@@ -775,36 +775,38 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         )}
       </div>
 
-      {isBlockedByMe && chat && (
-        <div className="flex items-center justify-between gap-3 px-4 py-2 bg-muted/50 border-t border-border">
-          <span className="text-sm text-muted-foreground">
-            You blocked this user. Unblock to send messages.
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              try {
-                await settingsService.unblockUser(chat.participant.id);
-                setBlockedUsers(blockedUserIds.filter((id) => id !== chat.participant.id));
-              } catch {
-                // keep state on error
-              }
-            }}
-          >
-            Unblock
-          </Button>
-        </div>
-      )}
+      <div className="flex flex-col">
+        {isBlockedByMe && chat && (
+          <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/50 px-4 py-2">
+            <span className="text-sm text-muted-foreground">
+              You blocked this user. Unblock to send messages.
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  await settingsService.unblockUser(chat.participant.id);
+                  setBlockedUsers(blockedUserIds.filter((id) => id !== chat.participant.id));
+                } catch {
+                  // keep state on error
+                }
+              }}
+            >
+              Unblock
+            </Button>
+          </div>
+        )}
 
-      <MessageInput
-        chatId={chatId}
-        onSend={handleSend}
-        replyingToMessage={replyingToMessage}
-        onCancelReply={() => setReplyingToMessage(null)}
-        disabled={isChatDisabled}
-        disabledPlaceholder={disabledPlaceholder}
-      />
+        <MessageInput
+          chatId={chatId}
+          onSend={handleSend}
+          replyingToMessage={replyingToMessage}
+          onCancelReply={() => setReplyingToMessage(null)}
+          disabled={isChatDisabled}
+          disabledPlaceholder={disabledPlaceholder}
+        />
+      </div>
 
       {/* Action Modals */}
       <Dialog

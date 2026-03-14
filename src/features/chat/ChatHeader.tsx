@@ -72,7 +72,7 @@ export function ChatHeader({
 
   return (
     <>
-      <div className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 bg-background z-10 chat-header">
+      <div className="chat-header h-16 border-b border-border bg-background px-2 sm:px-4 flex items-center justify-between">
         <div
           className="flex items-center gap-2  sm:gap-2 cursor-pointer"
           onClick={() => setProfileOpen(true)}

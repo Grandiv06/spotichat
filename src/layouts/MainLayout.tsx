@@ -16,7 +16,7 @@ import { useChatsStore } from "@/store/chats.store";
 import { useAuthStore } from "@/store/auth.store";
 import { useConnectionStatusStore } from "@/store/connection-status.store";
 import { connectSocket, getSocket, onSocketEvent } from "@/lib/socket";
-import { playMessageNotificationSound, unlockMessageNotificationAudio } from "@/lib/sounds";
+import { unlockMessageNotificationAudio } from "@/lib/sounds";
 import { chatService } from "@/services/chat.service";
 import type { Message } from "@/services/chat.service";
 
@@ -28,6 +28,7 @@ import { useOnlineStore } from "@/store/online.store";
 import { useMessageStatusStore } from "@/store/message-status.store";
 import { ChatList } from "@/features/chat/ChatList";
 import { ModalProvider } from "@/features/modals/ModalProvider";
+import { useAppViewportHeight } from "@/hooks/useAppViewportHeight";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,11 +38,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Stories } from "@/features/chat/Stories";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
 
 export function MainLayout() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [storiesCollapsed, setStoriesCollapsed] = useState(false);
   const { isAuthenticated, user } = useAuthStore();
+  const { playIncoming } = useNotificationSound();
+  useAppViewportHeight();
 
   // Connect WebSocket when user is authenticated (e.g. after refresh)
   useEffect(() => {
@@ -136,9 +140,17 @@ export function MainLayout() {
     const unsubNewMessage = chatService.onNewMessage((message: Message) => {
       const currentUser = useAuthStore.getState().user;
       if (!currentUser || message.senderId === currentUser.id) return;
+
+      // Play only when user is online/connected.
+      if (!navigator.onLine) return;
+      const connectionStatus = useConnectionStatusStore.getState().status;
+      if (connectionStatus !== "connected") return;
+
+      // If this chat is currently open, message will be seen immediately -> no notification sound.
       const openChatId = useChatStore.getState().selectedChatId;
       if (openChatId === message.chatId) return;
-      playMessageNotificationSound();
+
+      playIncoming(message.chatId);
     });
     return () => {
       unsubOnline();
@@ -146,7 +158,7 @@ export function MainLayout() {
       unsubStatus();
       unsubNewMessage();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, playIncoming]);
 
   // Load blocked users from server and subscribe to "you were blocked" real-time event
   useEffect(() => {
@@ -325,7 +337,10 @@ export function MainLayout() {
       : "SpotiChat";
 
   return (
-    <div className="flex h-[100dvh] w-full bg-background overflow-hidden relative">
+    <div
+      className="relative flex w-full overflow-hidden bg-background"
+      style={{ height: "var(--app-height, 100dvh)" }}
+    >
       {/* Sidebar - Hidden on small screens if chat is open, but for skeleton, just show standard structure */}
       <div
         className={`w-full md:w-80 lg:w-96 flex-shrink-0 border-r border-border flex flex-col bg-sidebar text-sidebar-foreground z-20 ${selectedChatId ? "hidden md:flex" : "flex"}`}
@@ -495,11 +510,15 @@ export function MainLayout() {
 
       {/* Main Chat Area */}
       <div
-        className={`absolute inset-0 z-30 flex min-w-0 flex-col bg-background transition-transform duration-300 ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none md:static md:inset-auto md:z-10 md:flex-1 md:w-auto md:translate-x-0 ${
+        className={`absolute inset-x-0 z-30 flex min-w-0 flex-col bg-background transition-transform duration-300 ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none md:static md:inset-auto md:z-10 md:w-auto md:min-h-0 md:flex-1 md:translate-x-0 ${
           selectedChatId
-            ? "translate-x-0 pointer-events-auto"
+            ? "pointer-events-auto"
             : "translate-x-full pointer-events-none md:pointer-events-auto"
         }`}
+        style={{
+          height: "var(--app-height, 100dvh)",
+          top: "var(--app-top-offset, 0px)",
+        }}
       >
         <Outlet />
       </div>

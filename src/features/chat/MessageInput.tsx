@@ -265,7 +265,7 @@ export function MessageInput({ chatId, onSend, replyingToMessage, onCancelReply,
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={disabled ? (disabledPlaceholder || "Connecting...") : "Write a message..."}
-                className="w-full bg-transparent border-none outline-none resize-none max-h-32 text-[15px] placeholder:text-muted-foreground/70 disabled:opacity-50"
+                className="w-full bg-transparent border-none outline-none resize-none max-h-32 text-base placeholder:text-muted-foreground/70 disabled:opacity-50"
                 rows={1}
                 style={{ minHeight: '24px' }}
                 disabled={disabled}
