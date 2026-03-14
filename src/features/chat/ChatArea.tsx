@@ -727,10 +727,11 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       )}
 
       <div className="relative min-h-0 overflow-hidden">
+        <div className="chat-wallpaper-pattern z-0" aria-hidden />
         <div
           ref={messagesContainerRef}
           className={cn(
-            "h-full min-h-0 overflow-y-auto px-4 py-4 custom-scrollbar",
+            "relative z-10 h-full min-h-0 overflow-y-auto px-4 py-4 custom-scrollbar",
             pinnedMessage ? "pt-16" : "",
           )}
           onScroll={() => {
@@ -845,7 +846,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           </div>
         </div>
         {showScrollToBottom && (
-          <div className="absolute bottom-5 right-6 flex flex-col items-center gap-0">
+          <div className="absolute bottom-5 right-6 z-20 flex flex-col items-center gap-0">
             <Button
               type="button"
               size="icon"
