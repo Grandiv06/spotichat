@@ -74,10 +74,6 @@ export function AudioMessage({ isMe, status, duration, audioUrl, messageId }: Au
     };
   }, []);
 
-  const stopEvent = (event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement>) => {
-    event.stopPropagation();
-  };
-
   const handleControlPointerDown = (event: PointerEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -121,34 +117,12 @@ export function AudioMessage({ isMe, status, duration, audioUrl, messageId }: Au
       });
   };
 
-  const handleSeek = (event: MouseEvent<HTMLDivElement>) => {
-    event.stopPropagation();
-    if (isSending) return;
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-
-    if (audioUrl && audioRef.current && audioRef.current.duration) {
-      audioRef.current.currentTime = ratio * audioRef.current.duration;
-      syncAudioProgress();
-      return;
-    }
-
-    const nextProgress = ratio * 100;
-    setProgress(nextProgress);
-    setElapsedSeconds((nextProgress / 100) * totalSeconds);
-  };
-
   return (
     <div
-      data-media-control="true"
       className={cn(
-        "flex items-center gap-3 w-[14.5rem] max-w-[72vw] sm:w-64 rounded-2xl px-2 py-1.5",
-        isMe ? "bg-primary-foreground/12" : "bg-black/[0.04] dark:bg-white/[0.03]",
+        "flex items-center gap-3 w-[14.5rem] max-w-[72vw] sm:w-64 py-1",
+        isMe ? "text-primary-foreground" : "text-card-foreground",
       )}
-      onPointerDown={stopEvent}
-      onClick={stopEvent}
     >
       {audioUrl ? (
         <audio
@@ -168,6 +142,7 @@ export function AudioMessage({ isMe, status, duration, audioUrl, messageId }: Au
       ) : null}
 
       <Button 
+        data-media-control="true"
         variant="ghost" 
         size="icon" 
         disabled={isSending}
@@ -184,13 +159,9 @@ export function AudioMessage({ isMe, status, duration, audioUrl, messageId }: Au
       <div className="flex flex-col flex-1 gap-1 min-w-0 overflow-hidden">
         <div
           className={cn(
-            "flex items-end h-6 w-full gap-[2px] transition-opacity rounded-md cursor-pointer",
+            "flex items-end h-6 w-full gap-[2px] transition-opacity",
             isSending ? "opacity-30" : "opacity-80",
           )}
-          onPointerDown={handleControlPointerDown}
-          onClick={handleSeek}
-          role="button"
-          aria-label="Seek voice message"
         >
           {waveformHeights.map((height, i) => {
             const isActive = (i / waveformHeights.length) * 100 <= progress;
