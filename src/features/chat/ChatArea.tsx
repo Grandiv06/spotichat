@@ -72,6 +72,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const [pinnedMessage, setPinnedMessage] = useState<Message | null>(null);
   const [isCallOpen, setIsCallOpen] = useState(false);
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+  const [activeMessageMenuId, setActiveMessageMenuId] = useState<string | null>(null);
   const [otherActivity, setOtherActivity] = useState<
     "typing" | "voice" | "video" | null
   >(null);
@@ -178,7 +179,14 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     initialScrollDoneRef.current = false;
     setEntryUnreadIds(new Set());
     setEntryUnreadBoundaryId(null);
+    setActiveMessageMenuId(null);
   }, [chatId]);
+
+  useEffect(() => {
+    if (!activeMessageMenuId) return;
+    if (messages.some((message) => message.id === activeMessageMenuId)) return;
+    setActiveMessageMenuId(null);
+  }, [activeMessageMenuId, messages]);
 
   const isNearBottom = useCallback((threshold = 120) => {
     const container = messagesContainerRef.current;
@@ -645,6 +653,9 @@ export function ChatArea({ chatId }: ChatAreaProps) {
             "h-full min-h-0 overflow-y-auto px-4 py-4 custom-scrollbar",
             pinnedMessage ? "pt-16" : "",
           )}
+          onScroll={() => {
+            if (activeMessageMenuId) setActiveMessageMenuId(null);
+          }}
         >
           <div className="flex flex-col gap-2 min-h-full justify-end pb-2">
           {/* Simple date badge placeholder */}
@@ -732,6 +743,13 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                     onToggleReaction={(emoji) =>
                       handleToggleReaction(msg.id, emoji)
                     }
+                    isMenuOpen={activeMessageMenuId === msg.id}
+                    onMenuOpenChange={(nextOpen) => {
+                      setActiveMessageMenuId((currentActiveId) => {
+                        if (nextOpen) return msg.id;
+                        return currentActiveId === msg.id ? null : currentActiveId;
+                      });
+                    }}
                   />
                 </div>
               </Fragment>

@@ -27,6 +27,31 @@ export default function App() {
     root.classList.add(theme);
   }, [theme]);
 
+  useEffect(() => {
+    const isCoarsePointer = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    if (!isCoarsePointer) return;
+
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      if (target.closest('.allow-text-selection')) return true;
+      const tag = target.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+    };
+
+    const blockNativeSelection = (event: Event) => {
+      if (isEditableTarget(event.target)) return;
+      event.preventDefault();
+    };
+
+    document.addEventListener('selectstart', blockNativeSelection);
+    document.addEventListener('contextmenu', blockNativeSelection);
+
+    return () => {
+      document.removeEventListener('selectstart', blockNativeSelection);
+      document.removeEventListener('contextmenu', blockNativeSelection);
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

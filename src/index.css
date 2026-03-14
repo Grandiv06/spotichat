@@ -125,12 +125,16 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
   }
   html,
   body,
   #root {
     @apply h-full overflow-hidden antialiased;
     overscroll-behavior-y: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
   body {
     @apply font-sans bg-background text-foreground;
@@ -138,6 +142,15 @@
   }
   html {
     @apply font-sans;
+  }
+  input,
+  textarea,
+  [contenteditable="true"],
+  [contenteditable=""],
+  .allow-text-selection {
+    user-select: text;
+    -webkit-user-select: text;
+    -webkit-touch-callout: default;
   }
 }
 
@@ -175,6 +188,15 @@
     top: 0;
     z-index: 30;
     flex-shrink: 0;
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    .message-ui-surface,
+    .message-ui-surface * {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

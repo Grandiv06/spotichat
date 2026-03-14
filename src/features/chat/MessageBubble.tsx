@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useMessageStatusStore } from '@/store/message-status.store';
 import { AudioMessage } from './AudioMessage';
 import { VideoMessage } from './VideoMessage';
+import { useLongPressMenu } from './hooks/useLongPressMenu';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,12 +21,14 @@ interface MessageBubbleProps {
   message: Message;
   searchQuery?: string;
   isHighlightedMatch?: boolean;
+  isMenuOpen?: boolean;
   onReply?: () => void;
   repliedMessage?: Message;
   onDeleteToggle?: () => void;
   onForwardToggle?: () => void;
   onPinMessage?: () => void;
   onToggleReaction?: (emoji: string) => void;
+  onMenuOpenChange?: (open: boolean) => void;
 }
 
 function escapeRegExp(string: string) {
@@ -36,12 +39,14 @@ function MessageBubbleComponent({
   message, 
   searchQuery, 
   isHighlightedMatch,
+  isMenuOpen = false,
   onReply, 
   repliedMessage,
   onDeleteToggle,
   onForwardToggle,
   onPinMessage,
   onToggleReaction,
+  onMenuOpenChange,
 }: MessageBubbleProps) {
   const { user } = useAuthStore();
   const storeStatus = useMessageStatusStore((s) => s.getStatus(message.id));
@@ -50,10 +55,17 @@ function MessageBubbleComponent({
   const [translateX, setTranslateX] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const { gestureHandlers, shouldAllowMenuOpenRequest } = useLongPressMenu<HTMLDivElement>({
+    onLongPress: () => {
+      onMenuOpenChange?.(true);
+    },
+  });
 
   const handlePointerDown = (e: React.PointerEvent) => {
     touchStartX.current = e.clientX;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    if (e.pointerType === 'mouse') {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -72,7 +84,17 @@ function MessageBubbleComponent({
     }
     setTranslateX(0);
     touchStartX.current = null;
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent) => {
+    setTranslateX(0);
+    touchStartX.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
   };
 
   const handleCopy = () => {
@@ -93,27 +115,45 @@ function MessageBubbleComponent({
         status === "sending" && "message-send-enter",
       )}
     >
-      <DropdownMenu>
+      <DropdownMenu
+        open={isMenuOpen}
+        onOpenChange={(nextOpen) => {
+          if (!shouldAllowMenuOpenRequest(nextOpen)) return;
+          onMenuOpenChange?.(nextOpen);
+        }}
+      >
         <DropdownMenuTrigger asChild>
-          <div className="flex flex-col max-w-[85%] sm:max-w-[75%] outline-none">
+          <div
+            className="message-ui-surface flex flex-col max-w-[85%] sm:max-w-[75%] outline-none"
+            {...gestureHandlers}
+            onContextMenu={(event) => {
+              if (
+                typeof window !== "undefined" &&
+                window.matchMedia("(hover: none) and (pointer: coarse)").matches
+              ) {
+                event.preventDefault();
+              }
+            }}
+          >
             <div 
               className={cn(
-                "px-4 py-2 rounded-2xl relative group shadow-sm transition-all cursor-pointer",
+                "message-ui-surface px-4 py-2 rounded-2xl relative group shadow-sm transition-all cursor-pointer",
                 translateX === 0 && "duration-200", // smooth snap back
                 isMe 
                   ? "bg-primary text-primary-foreground rounded-br-sm" 
                   : "bg-card border border-border text-card-foreground rounded-bl-sm",
+                isMenuOpen && "ring-2 ring-primary/35 ring-offset-2 ring-offset-background",
                 isHighlightedMatch && "ring-2 ring-ring ring-offset-2 ring-offset-background scale-[1.02]"
               )}
               style={{ transform: `translateX(${translateX}px)`, touchAction: 'pan-y' }}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
+              onPointerCancel={handlePointerCancel}
             >
         {repliedMessage && (
            <div 
-             className="cursor-pointer mb-2 flex flex-col border-l-2 border-primary/50 pl-2 opacity-80 hover:opacity-100 transition-opacity"
+             className="message-ui-surface cursor-pointer mb-2 flex flex-col border-l-2 border-primary/50 pl-2 opacity-80 hover:opacity-100 transition-opacity"
              onClick={(e) => {
                e.stopPropagation();
                const el = document.getElementById(`msg-${repliedMessage.id}`);
@@ -131,7 +171,7 @@ function MessageBubbleComponent({
         ) : message.type === 'video' ? (
           <VideoMessage isMe={isMe} status={status as 'sending' | 'sent' | 'delivered' | 'seen'} videoUrl={message.fileUrl} duration={message.duration} />
         ) : (
-          <div className="text-[15px] leading-relaxed break-words break-all whitespace-pre-wrap">
+          <div className="message-ui-surface text-[15px] leading-relaxed break-words break-all whitespace-pre-wrap">
             {(() => {
               const text = message.text || `[Empty ${message.type} message]`;
               if (!searchQuery) return text;
@@ -148,7 +188,7 @@ function MessageBubbleComponent({
         
           <div
             className={cn(
-              "flex items-center justify-end gap-1 mt-1 -mb-1",
+              "message-ui-surface flex items-center justify-end gap-1 mt-1 -mb-1",
               isMe ? "text-primary-foreground/70" : "text-muted-foreground",
             )}
           >
@@ -194,7 +234,7 @@ function MessageBubbleComponent({
 
         {/* Reaction Badges */}
         {reactionsSummary.length > 0 && (
-          <div className={cn("flex flex-wrap gap-1 mt-1", isMe ? "justify-end" : "justify-start")}>
+          <div className={cn("message-ui-surface flex flex-wrap gap-1 mt-1", isMe ? "justify-end" : "justify-start")}>
             {reactionsSummary.map(([emoji, users]) => {
               const hasReacted = user && users.includes(user.id);
               return (
@@ -267,6 +307,7 @@ function areEqual(prev: MessageBubbleProps, next: MessageBubbleProps) {
     prev.message === next.message &&
     prev.searchQuery === next.searchQuery &&
     prev.isHighlightedMatch === next.isHighlightedMatch &&
+    prev.isMenuOpen === next.isMenuOpen &&
     prevReplyId === nextReplyId
   );
 }
