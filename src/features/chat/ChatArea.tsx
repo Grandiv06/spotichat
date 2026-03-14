@@ -50,6 +50,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const initialScrollDoneRef = useRef(false);
   const pendingSeenIdsRef = useRef<Set<string>>(new Set());
   const seenFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [entryUnreadIds, setEntryUnreadIds] = useState<Set<string>>(new Set());
+  const [entryUnreadBoundaryId, setEntryUnreadBoundaryId] = useState<string | null>(null);
 
   // Search state
   const [isSearching, setIsSearching] = useState(false);
@@ -129,6 +131,18 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
         const msgs = await chatService.getMessages(chatId);
         setMessages(msgs);
+        const initialUnreadIds = msgs
+          .filter(
+            (m) =>
+              m.senderId !== user?.id &&
+              m.status !== "seen" &&
+              m.status !== "sending",
+          )
+          .map((m) => m.id);
+        setEntryUnreadIds(
+          new Set(initialUnreadIds),
+        );
+        setEntryUnreadBoundaryId(initialUnreadIds[0] ?? null);
 
         if (user) {
           const fromOther = msgs.filter((m) => m.senderId !== user.id);
@@ -151,6 +165,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   useEffect(() => {
     seenMessageIdsRef.current = new Set();
     initialScrollDoneRef.current = false;
+    setEntryUnreadIds(new Set());
+    setEntryUnreadBoundaryId(null);
   }, [chatId]);
 
   // Join chat room so we receive typing/status events from the other user
@@ -276,6 +292,15 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       useMessageStatusStore.getState().setStatus(id, "seen");
       pendingSeenIdsRef.current.add(id);
     });
+    setEntryUnreadIds((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
+      let changed = false;
+      for (const id of idsToMark) {
+        if (next.delete(id)) changed = true;
+      }
+      return changed ? next : prev;
+    });
 
     if (seenFlushTimeoutRef.current) clearTimeout(seenFlushTimeoutRef.current);
     seenFlushTimeoutRef.current = setTimeout(() => {
@@ -286,7 +311,6 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
   const {
     unreadCount,
-    firstUnreadMessageId,
     showScrollToBottom,
     scrollToBottom,
   } = useUnreadTracking({
@@ -297,6 +321,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     onMessagesSeen: markMessagesSeen,
   });
 
+  const shouldShowUnreadBoundary = entryUnreadIds.size > 0 && !!entryUnreadBoundaryId;
+
   // Telegram: after load, scroll to "New Messages" separator (first unread) or to bottom if no unread
   useLayoutEffect(() => {
     if (isLoading || messages.length === 0 || initialScrollDoneRef.current) return;
@@ -304,7 +330,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     if (!container) return;
 
     const doScroll = () => {
-      if (firstUnreadMessageId && unreadSeparatorRef.current) {
+      if (shouldShowUnreadBoundary && unreadSeparatorRef.current) {
         unreadSeparatorRef.current.scrollIntoView({ block: "start", behavior: "auto" });
       } else {
         container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
@@ -316,7 +342,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       requestAnimationFrame(doScroll);
     });
     return () => cancelAnimationFrame(id);
-  }, [isLoading, messages.length, firstUnreadMessageId]);
+  }, [isLoading, messages.length, shouldShowUnreadBoundary]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -619,10 +645,10 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           ) : (
             messages.map((msg) => (
               <Fragment key={msg.id}>
-                {firstUnreadMessageId === msg.id && (
+                {shouldShowUnreadBoundary && entryUnreadBoundaryId === msg.id && (
                   <div
                     ref={unreadSeparatorRef}
-                    className="sticky top-0 z-10 flex justify-center py-3 my-2 shrink-0 bg-[var(--background)]/80 dark:bg-[var(--background)]/90 backdrop-blur-sm -mx-4 px-4"
+                    className="z-10 flex justify-center py-3 my-2 shrink-0 -mx-4 px-4"
                     data-unread-separator
                   >
                     <span className="bg-primary/15 dark:bg-primary/20 text-primary font-medium text-xs px-4 py-1.5 rounded-full shadow-sm border border-primary/20">
