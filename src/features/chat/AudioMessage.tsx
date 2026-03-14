@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import type { MouseEvent, PointerEvent } from 'react';
-import { Play, Pause, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { useState, useEffect, useMemo, useRef } from "react";
+import type { MouseEvent, PointerEvent } from "react";
+import { Play, Pause, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface AudioMessageProps {
   isMe: boolean;
-  status?: 'sending' | 'sent' | 'delivered' | 'seen';
+  status?: "sending" | "sent" | "delivered" | "seen";
   duration?: number;
   audioUrl?: string;
   messageId: string;
@@ -16,7 +16,8 @@ function hashSeed(value: string): number {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i += 1) {
     hash ^= value.charCodeAt(i);
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+    hash +=
+      (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
   }
   return Math.abs(hash >>> 0);
 }
@@ -33,19 +34,28 @@ function formatDuration(seconds: number): string {
   const safe = Math.max(0, Math.floor(seconds));
   const mins = Math.floor(safe / 60);
   const secs = safe % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-export function AudioMessage({ isMe, status, duration, audioUrl, messageId }: AudioMessageProps) {
+export function AudioMessage({
+  isMe,
+  status,
+  duration,
+  audioUrl,
+  messageId,
+}: AudioMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [metadataDuration, setMetadataDuration] = useState<number | null>(null);
-  const isSending = status === 'sending';
+  const isSending = status === "sending";
   const audioRef = useRef<HTMLAudioElement>(null);
   const totalSeconds = Math.max(1, metadataDuration ?? duration ?? 12);
 
-  const waveformHeights = useMemo(() => buildWaveform(hashSeed(messageId)), [messageId]);
+  const waveformHeights = useMemo(
+    () => buildWaveform(hashSeed(messageId)),
+    [messageId],
+  );
 
   // Simulation logic for play/pause progress
   useEffect(() => {
@@ -53,7 +63,7 @@ export function AudioMessage({ isMe, status, duration, audioUrl, messageId }: Au
     if (isPlaying && !audioUrl) {
       const step = 100 / (totalSeconds * 10); // How much to add every 100ms
       interval = setInterval(() => {
-        setProgress(p => {
+        setProgress((p) => {
           if (p + step >= 100) {
             setIsPlaying(false);
             setElapsedSeconds(0);
@@ -108,7 +118,8 @@ export function AudioMessage({ isMe, status, duration, audioUrl, messageId }: Au
       return;
     }
 
-    void audio.play()
+    void audio
+      .play()
       .then(() => {
         setIsPlaying(true);
       })
@@ -120,7 +131,7 @@ export function AudioMessage({ isMe, status, duration, audioUrl, messageId }: Au
   return (
     <div
       className={cn(
-        "flex items-center gap-3 w-[14.5rem] max-w-[72vw] sm:w-64 py-1",
+        "flex items-center gap-3 w-[12.75rem] max-w-[66vw] sm:w-56 ",
         isMe ? "text-primary-foreground" : "text-card-foreground",
       )}
     >
@@ -141,21 +152,29 @@ export function AudioMessage({ isMe, status, duration, audioUrl, messageId }: Au
         />
       ) : null}
 
-      <Button 
+      <Button
         data-media-control="true"
-        variant="ghost" 
-        size="icon" 
+        variant="ghost"
+        size="icon"
         disabled={isSending}
         className={cn(
           "h-9 w-9 shrink-0 rounded-full",
-          isMe ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90 disabled:opacity-70" : "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-70"
+          isMe
+            ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90 disabled:opacity-70"
+            : "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-70",
         )}
         onPointerDown={handleControlPointerDown}
         onClick={togglePlayback}
       >
-        {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-1" />}
+        {isSending ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : isPlaying ? (
+          <Pause className="h-5 w-5" />
+        ) : (
+          <Play className="h-5 w-5 ml-1" />
+        )}
       </Button>
-      
+
       <div className="flex flex-col flex-1 gap-1 min-w-0 overflow-hidden">
         <div
           className={cn(
@@ -166,24 +185,26 @@ export function AudioMessage({ isMe, status, duration, audioUrl, messageId }: Au
           {waveformHeights.map((height, i) => {
             const isActive = (i / waveformHeights.length) * 100 <= progress;
             return (
-              <div 
+              <div
                 key={i}
                 className={cn(
                   "w-[3px] rounded-full transition-all duration-100",
-                  isActive ? "bg-current opacity-100" : "bg-current opacity-30"
+                  isActive ? "bg-current opacity-100" : "bg-current opacity-30",
                 )}
                 style={{ height: `${height}%` }}
               />
-            )
+            );
           })}
         </div>
         <div className="flex justify-between items-center mt-0.5">
-           <span className="text-[11px] tabular-nums font-medium opacity-80">
-             {formatDuration(isPlaying ? elapsedSeconds : (progress / 100) * totalSeconds)}
-           </span>
-           <span className="text-[11px] tabular-nums opacity-70">
-             {formatDuration(totalSeconds)}
-           </span>
+          <span className="text-[11px] tabular-nums font-medium opacity-80">
+            {formatDuration(
+              isPlaying ? elapsedSeconds : (progress / 100) * totalSeconds,
+            )}
+          </span>
+          <span className="text-[11px] tabular-nums opacity-70">
+            {formatDuration(totalSeconds)}
+          </span>
         </div>
       </div>
     </div>

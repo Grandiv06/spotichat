@@ -67,6 +67,7 @@ function MessageBubbleComponent({
   const storeStatus = useMessageStatusStore((s) => s.getStatus(message.id));
   const status = storeStatus ?? message.status;
   const isMe = user?.id === message.senderId;
+  const isVideoMessage = message.type === 'video';
   const [translateX, setTranslateX] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -198,9 +199,11 @@ function MessageBubbleComponent({
               className={cn(
                 "message-ui-surface px-4 py-2 rounded-2xl relative group shadow-sm transition-all cursor-pointer",
                 translateX === 0 && "duration-200", // smooth snap back
-                isMe 
-                  ? "bg-primary text-primary-foreground rounded-br-sm" 
-                  : "bg-card border border-border text-card-foreground rounded-bl-sm",
+                isVideoMessage
+                  ? "bg-transparent border-0 shadow-none px-0 py-0"
+                  : isMe
+                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                    : "bg-card border border-border text-card-foreground rounded-bl-sm",
                 isMenuOpen && "ring-2 ring-primary/35 ring-offset-2 ring-offset-background",
                 isReplyJumpHighlighted && "message-jump-highlight",
                 isHighlightedMatch && "ring-2 ring-ring ring-offset-2 ring-offset-background scale-[1.02]"
@@ -259,8 +262,13 @@ function MessageBubbleComponent({
         
           <div
             className={cn(
-              "message-ui-surface flex items-center justify-end gap-1 mt-1 -mb-1",
-              isMe ? "text-primary-foreground/70" : "text-muted-foreground",
+              "message-ui-surface flex items-center justify-end gap-1",
+              isVideoMessage ? "mt-1 mb-0 text-[11px] leading-none pr-0.5" : "mt-1 -mb-1",
+              isVideoMessage
+                ? "text-muted-foreground/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]"
+                : isMe
+                  ? "text-primary-foreground/70"
+                  : "text-muted-foreground",
             )}
           >
             <span className="text-[11px] leading-none">{time}</span>
