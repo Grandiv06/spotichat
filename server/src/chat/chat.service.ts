@@ -17,6 +17,21 @@ export class ChatService {
     private encryptionService: EncryptionService,
   ) {}
 
+  private buildMessagePreviewFromDoc(message: MessageDocument): string {
+    if (message.type === 'text') {
+      if (!message.encryptedContent || !message.iv) return 'Message';
+      try {
+        return this.encryptionService.decrypt(message.encryptedContent, message.iv);
+      } catch {
+        return 'Message';
+      }
+    }
+    if (message.type === 'voice') return 'Voice message';
+    if (message.type === 'video') return 'Video';
+    if (message.type === 'file') return 'File';
+    return 'Message';
+  }
+
   async getChats(userId: string) {
     const chats = await this.chatModel
       .find({ participants: new Types.ObjectId(userId) })
@@ -122,8 +137,37 @@ export class ChatService {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
+    const orderedMessages = messages.reverse();
+    const replyIds = Array.from(
+      new Set(
+        orderedMessages
+          .map((msg) => msg.replyToId?.toString())
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
 
-    return messages.reverse().map((msg) => {
+    const repliedMessages = replyIds.length
+      ? await this.messageModel.find({ _id: { $in: replyIds.map((id) => new Types.ObjectId(id)) } })
+      : [];
+    const repliedMessageById = new Map(
+      repliedMessages.map((msg) => [msg._id.toString(), msg] as const),
+    );
+
+    const replySenderIds = Array.from(
+      new Set(
+        repliedMessages.map((msg) => msg.senderId.toString()),
+      ),
+    );
+    const replySenders = replySenderIds.length
+      ? await this.userModel
+          .find({ _id: { $in: replySenderIds.map((id) => new Types.ObjectId(id)) } })
+          .select('name')
+      : [];
+    const replySenderNameById = new Map(
+      replySenders.map((sender) => [sender._id.toString(), sender.name] as const),
+    );
+
+    return orderedMessages.map((msg) => {
       let text: string | undefined;
       if (msg.type === 'text' && msg.encryptedContent && msg.iv) {
         try {
@@ -132,6 +176,20 @@ export class ChatService {
           text = '[Encrypted]';
         }
       }
+
+      const replied = msg.replyToId ? repliedMessageById.get(msg.replyToId.toString()) : undefined;
+      const replySenderId =
+        msg.replyToSenderId?.toString() ??
+        replied?.senderId?.toString();
+      const replySenderName =
+        msg.replyToSenderName ??
+        (replySenderId ? replySenderNameById.get(replySenderId) : undefined);
+      const replyToMessageType =
+        msg.replyToMessageType ??
+        replied?.type;
+      const replyToMessagePreview =
+        msg.replyToMessagePreview ??
+        (replied ? this.buildMessagePreviewFromDoc(replied) : undefined);
 
       return {
         id: msg._id.toString(),
@@ -144,6 +202,10 @@ export class ChatService {
         createdAt: (msg as any).createdAt,
         status: msg.status,
         replyToId: msg.replyToId?.toString(),
+        replyToSenderId: replySenderId,
+        replyToSenderName: replySenderName,
+        replyToMessageType,
+        replyToMessagePreview,
         reactions: msg.reactions ? Object.fromEntries(msg.reactions) : {},
       };
     });
@@ -154,9 +216,11 @@ export class ChatService {
     senderId: string,
     data: { text?: string; type?: string; fileUrl?: string; duration?: number; replyToId?: string },
   ) {
+    const chatObjectId = new Types.ObjectId(chatId);
+
     // Verify sender is a participant
     const chat = await this.chatModel.findOne({
-      _id: new Types.ObjectId(chatId),
+      _id: chatObjectId,
       participants: new Types.ObjectId(senderId),
     });
     if (!chat) throw new NotFoundException('Chat not found');
@@ -175,6 +239,30 @@ export class ChatService {
       }
     }
 
+    let replyTargetId: Types.ObjectId | undefined;
+    let replyToSenderId: Types.ObjectId | undefined;
+    let replyToSenderName: string | undefined;
+    let replyToMessageType: string | undefined;
+    let replyToMessagePreview: string | undefined;
+
+    if (data.replyToId) {
+      const replyTarget = await this.messageModel.findOne({
+        _id: new Types.ObjectId(data.replyToId),
+        chatId: chatObjectId,
+      });
+      if (!replyTarget) {
+        throw new NotFoundException('Reply target not found in this chat');
+      }
+
+      replyTargetId = replyTarget._id as Types.ObjectId;
+      replyToSenderId = replyTarget.senderId as Types.ObjectId;
+      replyToMessageType = replyTarget.type;
+      replyToMessagePreview = this.buildMessagePreviewFromDoc(replyTarget);
+
+      const replySender = await this.userModel.findById(replyToSenderId).select('name');
+      replyToSenderName = replySender?.name || 'Unknown';
+    }
+
     // Encrypt text content
     let encryptedContent: string | undefined;
     let iv: string | undefined;
@@ -185,14 +273,18 @@ export class ChatService {
     }
 
     const message = await this.messageModel.create({
-      chatId: new Types.ObjectId(chatId),
+      chatId: chatObjectId,
       senderId: new Types.ObjectId(senderId),
       type: data.type || 'text',
       encryptedContent,
       iv,
       fileUrl: data.fileUrl,
       duration: data.duration,
-      replyToId: data.replyToId ? new Types.ObjectId(data.replyToId) : undefined,
+      replyToId: replyTargetId,
+      replyToSenderId,
+      replyToSenderName,
+      replyToMessageType,
+      replyToMessagePreview,
       status: 'sent',
     });
 
@@ -213,6 +305,10 @@ export class ChatService {
       createdAt: (message as any).createdAt,
       status: message.status,
       replyToId: message.replyToId?.toString(),
+      replyToSenderId: message.replyToSenderId?.toString(),
+      replyToSenderName: message.replyToSenderName,
+      replyToMessageType: message.replyToMessageType,
+      replyToMessagePreview: message.replyToMessagePreview,
       reactions: {},
     };
   }

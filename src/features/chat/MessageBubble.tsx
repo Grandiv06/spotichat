@@ -22,8 +22,12 @@ interface MessageBubbleProps {
   searchQuery?: string;
   isHighlightedMatch?: boolean;
   isMenuOpen?: boolean;
+  isReplyJumpHighlighted?: boolean;
   onReply?: () => void;
   repliedMessage?: Message;
+  currentUserId?: string;
+  otherParticipantName?: string;
+  onJumpToMessage?: (messageId: string) => void;
   onDeleteToggle?: () => void;
   onForwardToggle?: () => void;
   onPinMessage?: () => void;
@@ -40,8 +44,12 @@ function MessageBubbleComponent({
   searchQuery, 
   isHighlightedMatch,
   isMenuOpen = false,
+  isReplyJumpHighlighted = false,
   onReply, 
   repliedMessage,
+  currentUserId,
+  otherParticipantName,
+  onJumpToMessage,
   onDeleteToggle,
   onForwardToggle,
   onPinMessage,
@@ -105,6 +113,32 @@ function MessageBubbleComponent({
 
   // Calculate reaction summaries
   const reactionsSummary = message.reactions ? Object.entries(message.reactions).filter(([, users]) => users.length > 0) : [];
+  const getPreviewText = (msg: Message) => {
+    if (msg.type === 'text') return msg.text || 'Message';
+    if (msg.type === 'voice') return 'Voice message';
+    if (msg.type === 'video') return 'Video';
+    if (msg.type === 'file') return 'File';
+    return 'Message';
+  };
+  const getTypeFallbackText = (type?: Message["type"]) => {
+    if (type === 'voice') return 'Voice message';
+    if (type === 'video') return 'Video';
+    if (type === 'file') return 'File';
+    if (type === 'text') return 'Message';
+    return '';
+  };
+  const hasReplyBlock = Boolean(repliedMessage || message.replyToId);
+  const replyTargetId = repliedMessage?.id ?? message.replyToId;
+  const replySenderName = repliedMessage
+    ? repliedMessage.senderId === currentUserId
+      ? 'You'
+      : otherParticipantName || 'Participant'
+    : message.replyToSenderName || 'Original message';
+  const replyPreviewText = repliedMessage
+    ? getPreviewText(repliedMessage)
+    : message.replyToMessagePreview ||
+      getTypeFallbackText(message.replyToMessageType) ||
+      'Original message unavailable';
 
   return (
     <div
@@ -143,6 +177,7 @@ function MessageBubbleComponent({
                   ? "bg-primary text-primary-foreground rounded-br-sm" 
                   : "bg-card border border-border text-card-foreground rounded-bl-sm",
                 isMenuOpen && "ring-2 ring-primary/35 ring-offset-2 ring-offset-background",
+                isReplyJumpHighlighted && "message-jump-highlight",
                 isHighlightedMatch && "ring-2 ring-ring ring-offset-2 ring-offset-background scale-[1.02]"
               )}
               style={{ transform: `translateX(${translateX}px)`, touchAction: 'pan-y' }}
@@ -151,18 +186,18 @@ function MessageBubbleComponent({
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerCancel}
             >
-        {repliedMessage && (
+        {hasReplyBlock && (
            <div 
              className="message-ui-surface cursor-pointer mb-2 flex flex-col border-l-2 border-primary/50 pl-2 opacity-80 hover:opacity-100 transition-opacity"
              onClick={(e) => {
                e.stopPropagation();
-               const el = document.getElementById(`msg-${repliedMessage.id}`);
-               if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+               if (!replyTargetId) return;
+               onJumpToMessage?.(replyTargetId);
              }}
            >
-             <span className="text-[11px] font-semibold text-primary">{isMe && repliedMessage.senderId === user?.id ? 'You' : 'Participant'}</span>
+             <span className="text-[11px] font-semibold text-primary">{replySenderName}</span>
              <span className="text-[13px] truncate">
-               {repliedMessage.text || `[${repliedMessage.type} Message]`}
+               {replyPreviewText}
              </span>
            </div>
         )}
@@ -308,6 +343,7 @@ function areEqual(prev: MessageBubbleProps, next: MessageBubbleProps) {
     prev.searchQuery === next.searchQuery &&
     prev.isHighlightedMatch === next.isHighlightedMatch &&
     prev.isMenuOpen === next.isMenuOpen &&
+    prev.isReplyJumpHighlighted === next.isReplyJumpHighlighted &&
     prevReplyId === nextReplyId
   );
 }

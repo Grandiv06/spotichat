@@ -74,12 +74,14 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const [isCallOpen, setIsCallOpen] = useState(false);
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
   const [activeMessageMenuId, setActiveMessageMenuId] = useState<string | null>(null);
+  const [jumpHighlightedMessageId, setJumpHighlightedMessageId] = useState<string | null>(null);
   const [otherActivity, setOtherActivity] = useState<
     "typing" | "voice" | "video" | null
   >(null);
   const otherTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const jumpHighlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { blockedUserIds, blockedByUserIds, setBlockedUsers, addBlockedByUser } =
     usePrivacySettingsStore();
@@ -181,6 +183,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     setEntryUnreadIds(new Set());
     setEntryUnreadBoundaryId(null);
     setActiveMessageMenuId(null);
+    setReplyingToMessage(null);
+    setJumpHighlightedMessageId(null);
   }, [chatId]);
 
   useEffect(() => {
@@ -188,6 +192,14 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     if (messages.some((message) => message.id === activeMessageMenuId)) return;
     setActiveMessageMenuId(null);
   }, [activeMessageMenuId, messages]);
+
+  useEffect(() => {
+    return () => {
+      if (jumpHighlightTimeoutRef.current) {
+        clearTimeout(jumpHighlightTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const isNearBottom = useCallback((threshold = 120) => {
     const container = messagesContainerRef.current;
@@ -470,6 +482,35 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     ? "You can't send messages to this user."
     : undefined;
 
+  const getMessageSenderName = useCallback((message: Message) => {
+    if (message.senderId === user?.id) return "You";
+    return chat?.participant?.name || "Participant";
+  }, [user?.id, chat?.participant?.name]);
+
+  const getMessagePreviewText = useCallback((message: Message) => {
+    if (message.type === "text") return message.text || "Message";
+    if (message.type === "voice") return "Voice message";
+    if (message.type === "video") return "Video";
+    if (message.type === "file") return "File";
+    return "Message";
+  }, []);
+
+  const jumpToMessage = useCallback((messageId: string) => {
+    const target = document.getElementById(`msg-${messageId}`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    setJumpHighlightedMessageId(messageId);
+    if (jumpHighlightTimeoutRef.current) {
+      clearTimeout(jumpHighlightTimeoutRef.current);
+    }
+    jumpHighlightTimeoutRef.current = setTimeout(() => {
+      setJumpHighlightedMessageId((current) =>
+        current === messageId ? null : current,
+      );
+      jumpHighlightTimeoutRef.current = null;
+    }, 1400);
+  }, []);
+
   const handleSend = useCallback(async (
     text?: string,
     type: "text" | "voice" | "video" | "file" = "text",
@@ -483,12 +524,14 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
     const wasAtBottomBeforeSend = isNearBottom(96);
 
+    const replyTarget = replyingToMessage;
     const newMsgObj: Omit<Message, "id" | "createdAt" | "status"> = {
       chatId,
       senderId: user.id,
       text: type === "text" ? text!.trim() : undefined,
       type,
       duration,
+      replyToId: replyTarget?.id,
     };
     const tempId = `m_temp_${Date.now()}`;
     const optimisticMsg: Message = {
@@ -496,10 +539,19 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       id: tempId,
       createdAt: new Date().toISOString(),
       status: "sending",
+      replyToSenderId: replyTarget?.senderId,
+      replyToSenderName: replyTarget
+        ? getMessageSenderName(replyTarget)
+        : undefined,
+      replyToMessageType: replyTarget?.type,
+      replyToMessagePreview: replyTarget
+        ? getMessagePreviewText(replyTarget)
+        : undefined,
     };
 
     // 1. Optimistic UI update
     setMessages((prev) => [...prev, optimisticMsg]);
+    setReplyingToMessage(null);
     if (wasAtBottomBeforeSend) {
       stickToBottom(false);
     }
@@ -540,7 +592,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
       // Revert optimistic update on failure
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
-  }, [user, isBlockedByMe, isRestrictedByOther, chatId, updateLastMessage, chat, addBlockedByUser, isNearBottom, stickToBottom]);
+  }, [user, isBlockedByMe, isRestrictedByOther, chatId, updateLastMessage, chat, addBlockedByUser, isNearBottom, stickToBottom, replyingToMessage, getMessageSenderName, getMessagePreviewText]);
 
   const handleToggleReaction = (messageId: string, emoji: string) => {
     if (!user) return;
@@ -759,12 +811,19 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                       matchCount > 0 &&
                       matchedMessages[currentMatchIndex]?.id === msg.id
                     }
-                    onReply={() => setReplyingToMessage(msg)}
+                    onReply={() => {
+                      setReplyingToMessage(msg);
+                      setActiveMessageMenuId(null);
+                    }}
                     repliedMessage={
                       msg.replyToId
                         ? messageById.get(msg.replyToId)
                         : undefined
                     }
+                    currentUserId={user?.id}
+                    otherParticipantName={chat?.participant?.name}
+                    isReplyJumpHighlighted={jumpHighlightedMessageId === msg.id}
+                    onJumpToMessage={jumpToMessage}
                     onDeleteToggle={() => setMessageToDelete(msg)}
                     onForwardToggle={() => setMessageToForward(msg)}
                     onPinMessage={() => setPinnedMessage(msg)}
@@ -848,6 +907,9 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           chatId={chatId}
           onSend={handleSend}
           replyingToMessage={replyingToMessage}
+          replyingToSenderName={
+            replyingToMessage ? getMessageSenderName(replyingToMessage) : undefined
+          }
           onCancelReply={() => setReplyingToMessage(null)}
           disabled={isChatDisabled}
           disabledPlaceholder={disabledPlaceholder}

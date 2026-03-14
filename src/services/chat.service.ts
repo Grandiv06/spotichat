@@ -13,6 +13,10 @@ export interface Message {
   status: "sending" | "sent" | "delivered" | "seen";
   duration?: number;
   replyToId?: string;
+  replyToSenderId?: string;
+  replyToSenderName?: string;
+  replyToMessageType?: "text" | "file" | "voice" | "video";
+  replyToMessagePreview?: string;
   reactions?: Record<string, string[]>;
 }
 

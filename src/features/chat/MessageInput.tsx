@@ -6,11 +6,13 @@ import { VideoRecorderUI } from './VideoRecorderUI';
 import { useMediaPermissions } from '@/hooks/useMediaPermissions';
 import { cn } from '@/lib/utils';
 import { chatService } from '@/services/chat.service';
+import type { Message } from '@/services/chat.service';
 
 interface MessageInputProps {
   chatId: string;
   onSend: (text?: string, type?: 'text' | 'voice' | 'video' | 'file', duration?: number) => void;
-  replyingToMessage?: any; // Message type from service
+  replyingToMessage?: Message | null;
+  replyingToSenderName?: string;
   onCancelReply?: () => void;
   disabled?: boolean;
   disabledPlaceholder?: string;
@@ -24,6 +26,7 @@ export function MessageInput({
   chatId,
   onSend,
   replyingToMessage,
+  replyingToSenderName,
   onCancelReply,
   disabled,
   disabledPlaceholder,
@@ -214,6 +217,21 @@ export function MessageInput({
     return () => clearTypingState(cid);
   }, [chatId]);
 
+  useEffect(() => {
+    if (!replyingToMessage) return;
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }, [replyingToMessage?.id]);
+
+  const getReplyPreviewText = (message: Message) => {
+    if (message.type === 'text') return message.text || 'Message';
+    if (message.type === 'voice') return 'Voice message';
+    if (message.type === 'video') return 'Video';
+    if (message.type === 'file') return 'File';
+    return 'Message';
+  };
+
   return (
     <div className="flex flex-col bg-background border-t border-border transition-all w-full relative">
       {/* Reply Preview Banner */}
@@ -221,9 +239,11 @@ export function MessageInput({
         <div className="flex items-center gap-3 px-4 py-2 bg-accent/20 border-b border-border/50 animate-in slide-in-from-bottom-2">
           <div className="w-1 h-8 bg-primary rounded-full shrink-0" />
           <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-xs font-semibold text-primary truncate">Replying to message</span>
+            <span className="text-xs font-semibold text-primary truncate">
+              {replyingToSenderName || 'Reply'}
+            </span>
             <span className="text-[13px] text-muted-foreground truncate">
-              {replyingToMessage.text || `[${replyingToMessage.type} Message]`}
+              {getReplyPreviewText(replyingToMessage)}
             </span>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" onClick={onCancelReply}>

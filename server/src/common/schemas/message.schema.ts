@@ -32,6 +32,18 @@ export class Message {
   @Prop({ type: Types.ObjectId, ref: 'Message' })
   replyToId?: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  replyToSenderId?: Types.ObjectId;
+
+  @Prop()
+  replyToSenderName?: string;
+
+  @Prop({ enum: ['text', 'voice', 'video', 'file'] })
+  replyToMessageType?: string;
+
+  @Prop()
+  replyToMessagePreview?: string;
+
   @Prop({ type: Map, of: [String], default: {} })
   reactions: Map<string, string[]>;
 
