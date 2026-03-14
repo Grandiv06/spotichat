@@ -39,6 +39,13 @@ function escapeRegExp(string: string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
 
+function isMediaControlTarget(target: EventTarget | null): target is HTMLElement {
+  return (
+    target instanceof HTMLElement &&
+    target.closest('[data-media-control="true"]') !== null
+  );
+}
+
 function MessageBubbleComponent({ 
   message, 
   searchQuery, 
@@ -70,6 +77,11 @@ function MessageBubbleComponent({
   });
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (isMediaControlTarget(e.target)) {
+      touchStartX.current = null;
+      return;
+    }
+
     touchStartX.current = e.clientX;
     if (e.pointerType === 'mouse') {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -77,6 +89,7 @@ function MessageBubbleComponent({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (isMediaControlTarget(e.target)) return;
     if (touchStartX.current === null) return;
     const diff = e.clientX - touchStartX.current;
     
@@ -87,6 +100,12 @@ function MessageBubbleComponent({
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    if (isMediaControlTarget(e.target)) {
+      setTranslateX(0);
+      touchStartX.current = null;
+      return;
+    }
+
     if (translateX <= -40 && onReply) {
       onReply();
     }
@@ -98,6 +117,12 @@ function MessageBubbleComponent({
   };
 
   const handlePointerCancel = (e: React.PointerEvent) => {
+    if (isMediaControlTarget(e.target)) {
+      setTranslateX(0);
+      touchStartX.current = null;
+      return;
+    }
+
     setTranslateX(0);
     touchStartX.current = null;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
@@ -202,9 +227,20 @@ function MessageBubbleComponent({
            </div>
         )}
         {message.type === 'voice' ? (
-          <AudioMessage isMe={isMe} status={status as 'sending' | 'sent' | 'delivered' | 'seen'} duration={message.duration} />
+          <AudioMessage
+            isMe={isMe}
+            status={status as 'sending' | 'sent' | 'delivered' | 'seen'}
+            duration={message.duration}
+            audioUrl={message.fileUrl}
+            messageId={message.id}
+          />
         ) : message.type === 'video' ? (
-          <VideoMessage isMe={isMe} status={status as 'sending' | 'sent' | 'delivered' | 'seen'} videoUrl={message.fileUrl} duration={message.duration} />
+          <VideoMessage
+            isMe={isMe}
+            status={status as 'sending' | 'sent' | 'delivered' | 'seen'}
+            videoUrl={message.fileUrl}
+            duration={message.duration}
+          />
         ) : (
           <div className="message-ui-surface text-[15px] leading-relaxed break-words break-all whitespace-pre-wrap">
             {(() => {

@@ -14,6 +14,13 @@ interface GestureHandlers<T extends HTMLElement> {
   onPointerCancelCapture: (event: ReactPointerEvent<T>) => void;
 }
 
+function isMediaControlTarget(target: EventTarget | null): target is HTMLElement {
+  return (
+    target instanceof HTMLElement &&
+    target.closest('[data-media-control="true"]') !== null
+  );
+}
+
 function getScrollableParent(node: HTMLElement | null): HTMLElement | null {
   let current = node;
 
@@ -47,17 +54,12 @@ export function useLongPressMenu<T extends HTMLElement = HTMLElement>({
   const startYRef = useRef(0);
   const lastPointerTypeRef = useRef<string | null>(null);
   const scrollParentRef = useRef<HTMLElement | null>(null);
+  const scrollAbortRef = useRef<AbortController | null>(null);
+  const suppressMenuOpenUntilRef = useRef(0);
 
   useEffect(() => {
     onLongPressRef.current = onLongPress;
   }, [onLongPress]);
-
-  const removeScrollListener = useCallback(() => {
-    const scrollParent = scrollParentRef.current;
-    if (!scrollParent) return;
-    scrollParent.removeEventListener("scroll", cancelOnScrollRef.current);
-    scrollParentRef.current = null;
-  }, []);
 
   const cancelPendingLongPress = useCallback(() => {
     if (timerRef.current) {
@@ -65,27 +67,27 @@ export function useLongPressMenu<T extends HTMLElement = HTMLElement>({
       timerRef.current = null;
     }
     activePointerIdRef.current = null;
-    removeScrollListener();
-  }, [removeScrollListener]);
-
-  const cancelOnScrollRef = useRef<() => void>(() => {});
-  cancelOnScrollRef.current = () => {
-    cancelPendingLongPress();
-  };
+    scrollAbortRef.current?.abort();
+    scrollAbortRef.current = null;
+    scrollParentRef.current = null;
+  }, []);
 
   const scheduleLongPress = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      activePointerIdRef.current = null;
-      removeScrollListener();
+      cancelPendingLongPress();
       onLongPressRef.current();
     }, longPressMs);
-  }, [longPressMs, removeScrollListener]);
+  }, [cancelPendingLongPress, longPressMs]);
 
   const onPointerDownCapture = useCallback(
     (event: ReactPointerEvent<T>) => {
       lastPointerTypeRef.current = event.pointerType;
+      if (isMediaControlTarget(event.target)) {
+        suppressMenuOpenUntilRef.current = Date.now() + 450;
+        cancelPendingLongPress();
+        return;
+      }
 
       if (event.pointerType !== "touch") {
         cancelPendingLongPress();
@@ -99,9 +101,13 @@ export function useLongPressMenu<T extends HTMLElement = HTMLElement>({
       const target = event.target as HTMLElement | null;
       const scrollParent = getScrollableParent(target);
       if (scrollParent) {
+        scrollAbortRef.current?.abort();
+        const controller = new AbortController();
+        scrollAbortRef.current = controller;
         scrollParentRef.current = scrollParent;
-        scrollParent.addEventListener("scroll", cancelOnScrollRef.current, {
+        scrollParent.addEventListener("scroll", cancelPendingLongPress, {
           passive: true,
+          signal: controller.signal,
         });
       }
 
@@ -147,6 +153,7 @@ export function useLongPressMenu<T extends HTMLElement = HTMLElement>({
 
   const shouldAllowMenuOpenRequest = useCallback((nextOpen: boolean) => {
     if (!nextOpen) return true;
+    if (Date.now() < suppressMenuOpenUntilRef.current) return false;
     return lastPointerTypeRef.current !== "touch";
   }, []);
 
