@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useMemo, Fragment } from "react";
 import { ChatHeader } from "./ChatHeader";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
@@ -36,6 +36,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const unreadSeparatorRef = useRef<HTMLDivElement>(null);
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
   const initialScrollDoneRef = useRef(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -242,36 +243,42 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     };
   }, [chatId, user?.id]);
 
-  // Telegram: after load, open at first unread (and stay there) or at bottom if no unread
-  useEffect(() => {
+  // Unread: from others, not seen, not sending. Use message state only so badge shows correctly on load (API status).
+  const unreadMessages = useMemo(
+    () =>
+      messages.filter(
+        (m) =>
+          m.senderId !== user?.id &&
+          m.status !== "seen" &&
+          m.status !== "sending",
+      ),
+    [messages, user?.id],
+  );
+  const unreadCount = unreadMessages.length;
+  // First unread = first "new" message. Badge is placed exactly above it and stays until user scrolls past all of them.
+  const firstUnreadMessage = unreadMessages[0] ?? null;
+
+  // Telegram: after load, scroll to "New Messages" separator (first unread) or to bottom if no unread
+  useLayoutEffect(() => {
     if (isLoading || messages.length === 0 || initialScrollDoneRef.current) return;
     const container = messagesContainerRef.current;
     if (!container) return;
 
-    const fromOther = messages.filter((m) => m.senderId !== user?.id);
-    const unread = fromOther.filter((m) => m.status !== "seen");
-
-    if (unread.length > 0) {
-      const firstUnread = unread[0];
-      requestAnimationFrame(() => {
-        const el = document.getElementById(`msg-${firstUnread.id}`);
-        if (el) el.scrollIntoView({ block: "start", behavior: "auto" });
-      });
-    } else {
-      container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
-    }
-    initialScrollDoneRef.current = true;
-    clearUnread(chatId);
-  }, [chatId, isLoading, messages, user?.id, clearUnread]);
-
-  // Unread count: messages from others that are not yet seen (counter for scroll-to-bottom badge)
-  const unreadCount = useMemo(
-    () =>
-      messages.filter(
-        (m) => m.senderId !== user?.id && m.status !== "seen" && m.status !== "sending",
-      ).length,
-    [messages, user?.id],
-  );
+    const doScroll = () => {
+      if (firstUnreadMessage && unreadSeparatorRef.current) {
+        unreadSeparatorRef.current.scrollIntoView({ block: "start", behavior: "auto" });
+      } else {
+        container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
+      }
+      initialScrollDoneRef.current = true;
+      clearUnread(chatId);
+    };
+    // Wait for layout so separator ref is attached and container has correct scrollHeight
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(doScroll);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [chatId, isLoading, messages.length, firstUnreadMessage, clearUnread]);
 
   // Flush pending markSeen to backend (debounced) so we don't spam Socket.io
   const flushPendingSeen = useRef(() => {
@@ -305,15 +312,16 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     return () => container.removeEventListener("scroll", onScroll);
   }, [chatId, isLoading]);
 
+  // Badge "New Messages" stays until all unread messages are read (marked seen via MessageBubble onVisible).
 
   const isRestrictedByOther = useMemo(
-    () => !!(chat && blockedByUserIds.includes(chat.participant.id)),
+    () => !!(chat?.participant && blockedByUserIds.includes(chat.participant.id)),
     [chat, blockedByUserIds],
   );
 
   const isBlockedByMe = useMemo(
     () =>
-      !!(chat && blockedUserIds.includes(chat.participant.id)),
+      !!(chat?.participant && blockedUserIds.includes(chat.participant.id)),
     [chat, blockedUserIds],
   );
 
@@ -593,51 +601,64 @@ export function ChatArea({ chatId }: ChatAreaProps) {
             </div>
           ) : (
             messages.map((msg) => (
-              <div key={msg.id} id={`msg-${msg.id}`}>
-                <MessageBubble
-                  message={msg}
-                  searchQuery={searchQuery}
-                  isHighlightedMatch={
-                    isSearching &&
-                    matchCount > 0 &&
-                    matchedMessages[currentMatchIndex]?.id === msg.id
-                  }
-                  onReply={() => setReplyingToMessage(msg)}
-                  repliedMessage={
-                    msg.replyToId
-                      ? messages.find((m) => m.id === msg.replyToId)
-                      : undefined
-                  }
-                  onDeleteToggle={() => setMessageToDelete(msg)}
-                  onForwardToggle={() => setMessageToForward(msg)}
-                  onPinMessage={() => setPinnedMessage(msg)}
-                  onToggleReaction={(emoji) =>
-                    handleToggleReaction(msg.id, emoji)
-                  }
-                  onVisible={
-                    msg.senderId !== user?.id
-                      ? () => {
-                          if (seenMessageIdsRef.current.has(msg.id)) return;
-                          seenMessageIdsRef.current.add(msg.id);
-                          setMessages((prev) =>
-                            prev.map((m) =>
-                              m.id === msg.id ? { ...m, status: "seen" as const } : m,
-                            ),
-                          );
-                          useMessageStatusStore.getState().setStatus(msg.id, "seen");
-                          pendingSeenIdsRef.current.add(msg.id);
-                          if (seenFlushTimeoutRef.current)
-                            clearTimeout(seenFlushTimeoutRef.current);
-                          seenFlushTimeoutRef.current = setTimeout(() => {
-                            seenFlushTimeoutRef.current = null;
-                            flushPendingSeen.current();
-                          }, 400);
-                        }
-                      : undefined
-                  }
-                  scrollContainerRef={messagesContainerRef}
-                />
-              </div>
+              <Fragment key={msg.id}>
+                {firstUnreadMessage?.id === msg.id && (
+                  <div
+                    ref={unreadSeparatorRef}
+                    className="sticky top-0 z-10 flex justify-center py-3 my-2 shrink-0 bg-[var(--background)]/80 dark:bg-[var(--background)]/90 backdrop-blur-sm -mx-4 px-4"
+                    data-unread-separator
+                  >
+                    <span className="bg-primary/15 dark:bg-primary/20 text-primary font-medium text-xs px-4 py-1.5 rounded-full shadow-sm border border-primary/20">
+                      New Messages
+                    </span>
+                  </div>
+                )}
+                <div id={`msg-${msg.id}`}>
+                  <MessageBubble
+                    message={msg}
+                    searchQuery={searchQuery}
+                    isHighlightedMatch={
+                      isSearching &&
+                      matchCount > 0 &&
+                      matchedMessages[currentMatchIndex]?.id === msg.id
+                    }
+                    onReply={() => setReplyingToMessage(msg)}
+                    repliedMessage={
+                      msg.replyToId
+                        ? messages.find((m) => m.id === msg.replyToId)
+                        : undefined
+                    }
+                    onDeleteToggle={() => setMessageToDelete(msg)}
+                    onForwardToggle={() => setMessageToForward(msg)}
+                    onPinMessage={() => setPinnedMessage(msg)}
+                    onToggleReaction={(emoji) =>
+                      handleToggleReaction(msg.id, emoji)
+                    }
+                    onVisible={
+                      msg.senderId !== user?.id
+                        ? () => {
+                            if (seenMessageIdsRef.current.has(msg.id)) return;
+                            seenMessageIdsRef.current.add(msg.id);
+                            setMessages((prev) =>
+                              prev.map((m) =>
+                                m.id === msg.id ? { ...m, status: "seen" as const } : m,
+                              ),
+                            );
+                            useMessageStatusStore.getState().setStatus(msg.id, "seen");
+                            pendingSeenIdsRef.current.add(msg.id);
+                            if (seenFlushTimeoutRef.current)
+                              clearTimeout(seenFlushTimeoutRef.current);
+                            seenFlushTimeoutRef.current = setTimeout(() => {
+                              seenFlushTimeoutRef.current = null;
+                              flushPendingSeen.current();
+                            }, 400);
+                          }
+                        : undefined
+                    }
+                    scrollContainerRef={messagesContainerRef}
+                  />
+                </div>
+              </Fragment>
             ))
           )}
           </div>

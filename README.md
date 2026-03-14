@@ -32,8 +32,8 @@ SpotiChat is a modern, responsive, Telegram-like messaging frontend built with R
    npm run dev
    ```
 3. Open `http://localhost:5173` to see the app.
-   
-*(For mock login, you can pass any 10-digit phone number, and ANY 5-digit code e.g. `12345` to enter.)*
+
+_(For mock login, you can pass any 10-digit phone number, and ANY 5-digit code e.g. `12345` to enter.)_
 
 ## Docker Deployment (Production)
 

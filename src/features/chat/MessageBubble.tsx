@@ -56,6 +56,8 @@ export function MessageBubble({
   const rootRef = useRef<HTMLDivElement>(null);
   const onVisibleFiredRef = useRef(false);
 
+  // Mark as "seen" only when user has scrolled past the message (left viewport from top), not when it enters view.
+  // This keeps the "New Messages" badge until the user actually reads each message.
   useEffect(() => {
     if (!onVisible || onVisibleFiredRef.current) return;
     const el = rootRef.current;
@@ -64,11 +66,18 @@ export function MessageBubble({
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        if (!entry?.isIntersecting || onVisibleFiredRef.current) return;
-        onVisibleFiredRef.current = true;
-        onVisible();
+        if (!entry || onVisibleFiredRef.current) return;
+        // User has scrolled past: message left viewport from the top (above visible area)
+        if (!entry.isIntersecting) {
+          const rect = entry.boundingClientRect;
+          const rootBounds = entry.rootBounds;
+          if (rootBounds && rect.bottom < rootBounds.top) {
+            onVisibleFiredRef.current = true;
+            onVisible();
+          }
+        }
       },
-      { root: scrollRoot, threshold: 0.5, rootMargin: '0px' }
+      { root: scrollRoot, threshold: 0, rootMargin: '0px' }
     );
     observer.observe(el);
     return () => observer.disconnect();
