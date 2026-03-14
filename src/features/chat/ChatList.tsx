@@ -18,7 +18,7 @@ function lastMessagePreview(msg: Message | undefined): string {
 }
 
 export function ChatList() {
-  const { chats, setChats, addUnread, clearUnread, getUnreadCount, updateLastMessage } =
+  const { chats, setChats, addUnread, getUnreadCount, updateLastMessage } =
     useChatsStore();
   const { selectedChatId, setSelectedChatId } = useChatStore();
   const { isOnline } = useOnlineStore();
@@ -35,10 +35,6 @@ export function ChatList() {
   }, []);
 
   useEffect(() => {
-    if (selectedChatId) clearUnread(selectedChatId);
-  }, [selectedChatId]);
-
-  useEffect(() => {
     const unsub = chatService.onNewMessage((message: Message) => {
       updateLastMessage(message.chatId, message);
       const isFromOther = message.senderId !== user?.id;
@@ -52,7 +48,6 @@ export function ChatList() {
 
   const handleSelectChat = (chat: Chat) => {
     setSelectedChatId(chat.id);
-    clearUnread(chat.id);
   };
 
   return (

@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useState, useRef, useMemo, Fragment } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useRef,
+  useMemo,
+  Fragment,
+  useCallback,
+} from "react";
 import { ChatHeader } from "./ChatHeader";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
@@ -14,6 +22,7 @@ import { playSendSound } from "@/lib/sounds";
 import { CallScreen } from "@/features/call/CallScreen";
 import { usePrivacySettingsStore } from "@/features/settings/store/privacy.store";
 import { settingsService } from "@/services/settings.service";
+import { useUnreadTracking } from "./hooks/useUnreadTracking";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +40,7 @@ interface ChatAreaProps {
 export function ChatArea({ chatId }: ChatAreaProps) {
   const { user } = useAuthStore();
   const updateLastMessage = useChatsStore((s) => s.updateLastMessage);
-  const clearUnread = useChatsStore((s) => s.clearUnread);
+  const setUnreadCount = useChatsStore((s) => s.setUnreadCount);
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,7 +48,6 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const unreadSeparatorRef = useRef<HTMLDivElement>(null);
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
   const initialScrollDoneRef = useRef(false);
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const pendingSeenIdsRef = useRef<Set<string>>(new Set());
   const seenFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -243,43 +251,6 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     };
   }, [chatId, user?.id]);
 
-  // Unread: from others, not seen, not sending. Use message state only so badge shows correctly on load (API status).
-  const unreadMessages = useMemo(
-    () =>
-      messages.filter(
-        (m) =>
-          m.senderId !== user?.id &&
-          m.status !== "seen" &&
-          m.status !== "sending",
-      ),
-    [messages, user?.id],
-  );
-  const unreadCount = unreadMessages.length;
-  // First unread = first "new" message. Badge is placed exactly above it and stays until user scrolls past all of them.
-  const firstUnreadMessage = unreadMessages[0] ?? null;
-
-  // Telegram: after load, scroll to "New Messages" separator (first unread) or to bottom if no unread
-  useLayoutEffect(() => {
-    if (isLoading || messages.length === 0 || initialScrollDoneRef.current) return;
-    const container = messagesContainerRef.current;
-    if (!container) return;
-
-    const doScroll = () => {
-      if (firstUnreadMessage && unreadSeparatorRef.current) {
-        unreadSeparatorRef.current.scrollIntoView({ block: "start", behavior: "auto" });
-      } else {
-        container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
-      }
-      initialScrollDoneRef.current = true;
-      clearUnread(chatId);
-    };
-    // Wait for layout so separator ref is attached and container has correct scrollHeight
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(doScroll);
-    });
-    return () => cancelAnimationFrame(id);
-  }, [chatId, isLoading, messages.length, firstUnreadMessage, clearUnread]);
-
   // Flush pending markSeen to backend (debounced) so we don't spam Socket.io
   const flushPendingSeen = useRef(() => {
     if (pendingSeenIdsRef.current.size === 0) return;
@@ -288,31 +259,77 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     ids.forEach((id) => chatService.markSeen(id));
   });
 
+  const markMessagesSeen = useCallback((messageIds: string[]) => {
+    if (messageIds.length === 0) return;
+
+    const idsToMark = messageIds.filter((id) => !seenMessageIdsRef.current.has(id));
+    if (idsToMark.length === 0) return;
+
+    idsToMark.forEach((id) => seenMessageIdsRef.current.add(id));
+    const seenSet = new Set(idsToMark);
+
+    setMessages((prev) =>
+      prev.map((m) => (seenSet.has(m.id) ? { ...m, status: "seen" as const } : m)),
+    );
+
+    idsToMark.forEach((id) => {
+      useMessageStatusStore.getState().setStatus(id, "seen");
+      pendingSeenIdsRef.current.add(id);
+    });
+
+    if (seenFlushTimeoutRef.current) clearTimeout(seenFlushTimeoutRef.current);
+    seenFlushTimeoutRef.current = setTimeout(() => {
+      seenFlushTimeoutRef.current = null;
+      flushPendingSeen.current();
+    }, 350);
+  }, []);
+
+  const {
+    unreadCount,
+    firstUnreadMessageId,
+    showScrollToBottom,
+    scrollToBottom,
+  } = useUnreadTracking({
+    chatId,
+    messages,
+    currentUserId: user?.id,
+    containerRef: messagesContainerRef,
+    onMessagesSeen: markMessagesSeen,
+  });
+
+  // Telegram: after load, scroll to "New Messages" separator (first unread) or to bottom if no unread
+  useLayoutEffect(() => {
+    if (isLoading || messages.length === 0 || initialScrollDoneRef.current) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const doScroll = () => {
+      if (firstUnreadMessageId && unreadSeparatorRef.current) {
+        unreadSeparatorRef.current.scrollIntoView({ block: "start", behavior: "auto" });
+      } else {
+        container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
+      }
+      initialScrollDoneRef.current = true;
+    };
+    // Wait for layout so separator ref is attached and container has correct scrollHeight
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(doScroll);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [isLoading, messages.length, firstUnreadMessageId]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    setUnreadCount(chatId, unreadCount);
+  }, [chatId, unreadCount, setUnreadCount, isLoading]);
+
   useEffect(() => {
     return () => {
       if (seenFlushTimeoutRef.current) clearTimeout(seenFlushTimeoutRef.current);
       flushPendingSeen.current();
     };
   }, [chatId]);
-
-  // Track if user is at bottom (for FAB and for auto-scroll on new message)
-  const checkAtBottom = () => {
-    const container = messagesContainerRef.current;
-    if (!container) return true;
-    const { scrollTop, clientHeight, scrollHeight } = container;
-    return scrollHeight - scrollTop - clientHeight < 80;
-  };
-
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    const onScroll = () => setShowScrollToBottom(!checkAtBottom());
-    container.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => container.removeEventListener("scroll", onScroll);
-  }, [chatId, isLoading]);
-
-  // Badge "New Messages" stays until all unread messages are read (marked seen via MessageBubble onVisible).
+  // Badge "New Messages" stays until unread incoming messages become visible in viewport.
 
   const isRestrictedByOther = useMemo(
     () => !!(chat?.participant && blockedByUserIds.includes(chat.participant.id)),
@@ -602,7 +619,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           ) : (
             messages.map((msg) => (
               <Fragment key={msg.id}>
-                {firstUnreadMessage?.id === msg.id && (
+                {firstUnreadMessageId === msg.id && (
                   <div
                     ref={unreadSeparatorRef}
                     className="sticky top-0 z-10 flex justify-center py-3 my-2 shrink-0 bg-[var(--background)]/80 dark:bg-[var(--background)]/90 backdrop-blur-sm -mx-4 px-4"
@@ -613,7 +630,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                     </span>
                   </div>
                 )}
-                <div id={`msg-${msg.id}`}>
+                <div id={`msg-${msg.id}`} data-message-id={msg.id}>
                   <MessageBubble
                     message={msg}
                     searchQuery={searchQuery}
@@ -634,28 +651,6 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                     onToggleReaction={(emoji) =>
                       handleToggleReaction(msg.id, emoji)
                     }
-                    onVisible={
-                      msg.senderId !== user?.id
-                        ? () => {
-                            if (seenMessageIdsRef.current.has(msg.id)) return;
-                            seenMessageIdsRef.current.add(msg.id);
-                            setMessages((prev) =>
-                              prev.map((m) =>
-                                m.id === msg.id ? { ...m, status: "seen" as const } : m,
-                              ),
-                            );
-                            useMessageStatusStore.getState().setStatus(msg.id, "seen");
-                            pendingSeenIdsRef.current.add(msg.id);
-                            if (seenFlushTimeoutRef.current)
-                              clearTimeout(seenFlushTimeoutRef.current);
-                            seenFlushTimeoutRef.current = setTimeout(() => {
-                              seenFlushTimeoutRef.current = null;
-                              flushPendingSeen.current();
-                            }, 400);
-                          }
-                        : undefined
-                    }
-                    scrollContainerRef={messagesContainerRef}
                   />
                 </div>
               </Fragment>
@@ -677,11 +672,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                 "animate-in zoom-in-95 fade-in duration-200",
               )}
               onClick={() => {
-                messagesContainerRef.current?.scrollTo({
-                  top: messagesContainerRef.current.scrollHeight,
-                  behavior: "smooth",
-                });
-                setShowScrollToBottom(false);
+                scrollToBottom();
               }}
               aria-label="Scroll to bottom"
             >

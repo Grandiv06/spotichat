@@ -208,7 +208,7 @@ export function MainLayout() {
     setCreateChannelOpen,
   } = useModalStore();
   const { setOpen: setSettingsOpen } = useSettingsStore();
-  const { selectedChatId } = useChatStore();
+  const { selectedChatId, setSelectedChatId } = useChatStore();
   const chats = useChatsStore((s) => s.chats);
   const STORIES_HEIGHT = 120;
   const COLLAPSE_SCROLL_THRESHOLD = 4;
@@ -217,6 +217,7 @@ export function MainLayout() {
   const touchStartY = useRef(0);
   const touchStartScrollTop = useRef(0);
   const hasScrolledToTopRef = useRef(false);
+  const wasChatOpenRef = useRef(false);
 
   collapsedRef.current = storiesCollapsed;
 
@@ -233,6 +234,40 @@ export function MainLayout() {
   useEffect(() => {
     scrollContainerRef.current?.scrollTo(0, 0);
   }, []);
+
+  useEffect(() => {
+    const isChatOpen = Boolean(selectedChatId);
+    const wasChatOpen = wasChatOpenRef.current;
+
+    if (isChatOpen && !wasChatOpen) {
+      window.history.pushState({ spotichatChatOpen: true }, "", window.location.href);
+    }
+
+    wasChatOpenRef.current = isChatOpen;
+  }, [selectedChatId]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key !== "Escape") return;
+      if (!useChatStore.getState().selectedChatId) return;
+      setSelectedChatId(null);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [setSelectedChatId]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (!useChatStore.getState().selectedChatId) return;
+      setSelectedChatId(null);
+      wasChatOpenRef.current = false;
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [setSelectedChatId]);
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const target = event.currentTarget;
@@ -460,7 +495,11 @@ export function MainLayout() {
 
       {/* Main Chat Area */}
       <div
-        className={`flex-1 flex flex-col min-w-0 bg-background relative z-10 ${selectedChatId ? "flex" : "hidden md:flex"}`}
+        className={`absolute inset-0 z-30 flex min-w-0 flex-col bg-background transition-transform duration-300 ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none md:static md:inset-auto md:z-10 md:flex-1 md:w-auto md:translate-x-0 ${
+          selectedChatId
+            ? "translate-x-0 pointer-events-auto"
+            : "translate-x-full pointer-events-none md:pointer-events-auto"
+        }`}
       >
         <Outlet />
       </div>

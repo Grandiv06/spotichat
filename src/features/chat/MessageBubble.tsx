@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Check, CheckCheck, Clock, Copy, Reply, Pin, Forward, Trash2 } from 'lucide-react';
 import type { Message } from '@/services/chat.service';
 import { cn } from '@/lib/utils';
@@ -26,8 +26,6 @@ interface MessageBubbleProps {
   onForwardToggle?: () => void;
   onPinMessage?: () => void;
   onToggleReaction?: (emoji: string) => void;
-  onVisible?: () => void;
-  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 function escapeRegExp(string: string) {
@@ -44,8 +42,6 @@ export function MessageBubble({
   onForwardToggle,
   onPinMessage,
   onToggleReaction,
-  onVisible,
-  scrollContainerRef,
 }: MessageBubbleProps) {
   const { user } = useAuthStore();
   const storeStatus = useMessageStatusStore((s) => s.getStatus(message.id));
@@ -54,34 +50,6 @@ export function MessageBubble({
   const [translateX, setTranslateX] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const onVisibleFiredRef = useRef(false);
-
-  // Mark as "seen" only when user has scrolled past the message (left viewport from top), not when it enters view.
-  // This keeps the "New Messages" badge until the user actually reads each message.
-  useEffect(() => {
-    if (!onVisible || onVisibleFiredRef.current) return;
-    const el = rootRef.current;
-    const scrollRoot = scrollContainerRef?.current ?? null;
-    if (!el || !scrollRoot) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry || onVisibleFiredRef.current) return;
-        // User has scrolled past: message left viewport from the top (above visible area)
-        if (!entry.isIntersecting) {
-          const rect = entry.boundingClientRect;
-          const rootBounds = entry.rootBounds;
-          if (rootBounds && rect.bottom < rootBounds.top) {
-            onVisibleFiredRef.current = true;
-            onVisible();
-          }
-        }
-      },
-      { root: scrollRoot, threshold: 0, rootMargin: '0px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [onVisible, scrollContainerRef]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     touchStartX.current = e.clientX;
