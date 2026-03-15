@@ -33,6 +33,17 @@ interface MessageBubbleProps {
   onPinMessage?: () => void;
   onToggleReaction?: (emoji: string) => void;
   onMenuOpenChange?: (open: boolean) => void;
+  isMediaActive?: boolean;
+  isMediaPlaying?: boolean;
+  mediaPlaybackSpeed?: 1 | 1.5 | 2;
+  onRequestMediaPlay?: () => void;
+  onToggleMediaPlayback?: () => void;
+  onMediaProgress?: (payload: {
+    currentTime: number;
+    duration: number;
+    progress: number;
+  }) => void;
+  onMediaEnded?: () => void;
 }
 
 function escapeRegExp(string: string) {
@@ -70,6 +81,13 @@ function MessageBubbleComponent({
   onPinMessage,
   onToggleReaction,
   onMenuOpenChange,
+  isMediaActive = false,
+  isMediaPlaying = false,
+  mediaPlaybackSpeed = 1,
+  onRequestMediaPlay,
+  onToggleMediaPlayback,
+  onMediaProgress,
+  onMediaEnded,
 }: MessageBubbleProps) {
   const { user } = useAuthStore();
   const storeStatus = useMessageStatusStore((s) => s.getStatus(message.id));
@@ -248,6 +266,13 @@ function MessageBubbleComponent({
             duration={message.duration}
             audioUrl={message.fileUrl}
             messageId={message.id}
+            isActive={isMediaActive}
+            isGlobalPlaying={isMediaPlaying}
+            playbackSpeed={mediaPlaybackSpeed}
+            onRequestPlay={() => onRequestMediaPlay?.()}
+            onTogglePlayPause={() => onToggleMediaPlayback?.()}
+            onProgress={(payload) => onMediaProgress?.(payload)}
+            onEnded={() => onMediaEnded?.()}
           />
         ) : message.type === 'video' ? (
           <VideoMessage
@@ -255,6 +280,13 @@ function MessageBubbleComponent({
             status={status as 'sending' | 'sent' | 'delivered' | 'seen'}
             videoUrl={message.fileUrl}
             duration={message.duration}
+            isActive={isMediaActive}
+            isGlobalPlaying={isMediaPlaying}
+            playbackSpeed={mediaPlaybackSpeed}
+            onRequestPlay={() => onRequestMediaPlay?.()}
+            onTogglePlayPause={() => onToggleMediaPlayback?.()}
+            onProgress={(payload) => onMediaProgress?.(payload)}
+            onEnded={() => onMediaEnded?.()}
           />
         ) : (
           <div className="message-ui-surface text-[15px] leading-relaxed break-words break-all whitespace-pre-wrap">
@@ -405,6 +437,9 @@ function areEqual(prev: MessageBubbleProps, next: MessageBubbleProps) {
     prev.isHighlightedMatch === next.isHighlightedMatch &&
     prev.isMenuOpen === next.isMenuOpen &&
     prev.isReplyJumpHighlighted === next.isReplyJumpHighlighted &&
+    prev.isMediaActive === next.isMediaActive &&
+    prev.isMediaPlaying === next.isMediaPlaying &&
+    prev.mediaPlaybackSpeed === next.mediaPlaybackSpeed &&
     prevReplyId === nextReplyId
   );
 }

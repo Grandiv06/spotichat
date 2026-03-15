@@ -11,6 +11,7 @@ import { ChatHeader } from "./ChatHeader";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
 import { InChatSearch } from "./InChatSearch";
+import { GlobalMediaPlayerBar } from "./GlobalMediaPlayerBar";
 import { chatService } from "@/services/chat.service";
 import type { Message, Chat } from "@/services/chat.service";
 import { useAuthStore } from "@/store/auth.store";
@@ -35,6 +36,25 @@ import { ChevronDown } from "lucide-react";
 
 interface ChatAreaProps {
   chatId: string;
+}
+
+type PlaybackSpeed = 1 | 1.5 | 2;
+
+interface MediaQueueItem {
+  id: string;
+  type: "voice" | "video";
+  duration?: number;
+}
+
+interface MediaPlaybackState {
+  queue: MediaQueueItem[];
+  currentIndex: number;
+  isPlaying: boolean;
+  speed: PlaybackSpeed;
+  progress: number;
+  elapsedSeconds: number;
+  totalSeconds: number;
+  autoContinue: boolean;
 }
 
 export function ChatArea({ chatId }: ChatAreaProps) {
@@ -78,6 +98,16 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   const [otherActivity, setOtherActivity] = useState<
     "typing" | "voice" | "video" | null
   >(null);
+  const [mediaPlayback, setMediaPlayback] = useState<MediaPlaybackState>({
+    queue: [],
+    currentIndex: 0,
+    isPlaying: false,
+    speed: 1,
+    progress: 0,
+    elapsedSeconds: 0,
+    totalSeconds: 0,
+    autoContinue: true,
+  });
   const otherTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -95,6 +125,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     () => new Map(messages.map((m) => [m.id, m] as const)),
     [messages],
   );
+  const activeMediaItem = mediaPlayback.queue[mediaPlayback.currentIndex] ?? null;
 
   useEffect(() => {
     setCurrentMatchIndex(0);
@@ -185,6 +216,16 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     setActiveMessageMenuId(null);
     setReplyingToMessage(null);
     setJumpHighlightedMessageId(null);
+    setMediaPlayback((prev) => ({
+      ...prev,
+      queue: [],
+      currentIndex: 0,
+      isPlaying: false,
+      progress: 0,
+      elapsedSeconds: 0,
+      totalSeconds: 0,
+      autoContinue: true,
+    }));
   }, [chatId]);
 
   useEffect(() => {
@@ -495,6 +536,194 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     return "Message";
   }, []);
 
+  const buildMediaQueueFrom = useCallback(
+    (startMessageId: string): MediaQueueItem[] => {
+      const startIndex = messages.findIndex((m) => m.id === startMessageId);
+      if (startIndex < 0) return [];
+      return messages
+        .slice(startIndex)
+        .filter((m) => m.type === "voice" || m.type === "video")
+        .map((m) => ({
+          id: m.id,
+          type: m.type as "voice" | "video",
+          duration: m.duration,
+        }));
+    },
+    [messages],
+  );
+
+  const setPlaybackForNewActive = useCallback(
+    (queue: MediaQueueItem[], speed: PlaybackSpeed): MediaPlaybackState => {
+      const current = queue[0];
+      return {
+        queue,
+        currentIndex: 0,
+        isPlaying: true,
+        speed,
+        progress: 0,
+        elapsedSeconds: 0,
+        totalSeconds: Math.max(1, current?.duration ?? 0),
+        autoContinue: true,
+      };
+    },
+    [],
+  );
+
+  const handleMediaItemPress = useCallback(
+    (messageId: string) => {
+      setMediaPlayback((prev) => {
+        const current = prev.queue[prev.currentIndex];
+        if (current?.id === messageId) {
+          if (prev.isPlaying) {
+            return { ...prev, isPlaying: false, autoContinue: false };
+          }
+          return { ...prev, isPlaying: true, autoContinue: true };
+        }
+
+        const queue = buildMediaQueueFrom(messageId);
+        if (queue.length === 0) return prev;
+        return setPlaybackForNewActive(queue, prev.speed);
+      });
+    },
+    [buildMediaQueueFrom, setPlaybackForNewActive],
+  );
+
+  const toggleActiveMediaPlayback = useCallback(() => {
+    setMediaPlayback((prev) => {
+      if (prev.queue.length === 0) return prev;
+      if (prev.isPlaying) return { ...prev, isPlaying: false, autoContinue: false };
+      return { ...prev, isPlaying: true, autoContinue: true };
+    });
+  }, []);
+
+  const closeMediaPlayback = useCallback(() => {
+    setMediaPlayback((prev) => ({
+      ...prev,
+      queue: [],
+      currentIndex: 0,
+      isPlaying: false,
+      progress: 0,
+      elapsedSeconds: 0,
+      totalSeconds: 0,
+      autoContinue: true,
+    }));
+  }, []);
+
+  const cycleMediaSpeed = useCallback(() => {
+    setMediaPlayback((prev) => ({
+      ...prev,
+      speed: prev.speed === 1 ? 1.5 : prev.speed === 1.5 ? 2 : 1,
+    }));
+  }, []);
+
+  const handleMediaProgress = useCallback(
+    (
+      messageId: string,
+      payload: { currentTime: number; duration: number; progress: number },
+    ) => {
+      setMediaPlayback((prev) => {
+        const current = prev.queue[prev.currentIndex];
+        if (!current || current.id !== messageId) return prev;
+
+        const nextProgress = Math.max(0, Math.min(100, payload.progress));
+        const nextDuration = Math.max(1, payload.duration || prev.totalSeconds || 1);
+        const nextElapsed = Math.max(0, Math.min(payload.currentTime, nextDuration));
+
+        if (
+          Math.abs(prev.progress - nextProgress) < 0.05 &&
+          Math.abs(prev.elapsedSeconds - nextElapsed) < 0.05 &&
+          Math.abs(prev.totalSeconds - nextDuration) < 0.05
+        ) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          progress: nextProgress,
+          elapsedSeconds: nextElapsed,
+          totalSeconds: nextDuration,
+        };
+      });
+    },
+    [],
+  );
+
+  const handleMediaEnded = useCallback((messageId: string) => {
+    setMediaPlayback((prev) => {
+      const current = prev.queue[prev.currentIndex];
+      if (!current || current.id !== messageId) return prev;
+
+      if (!prev.autoContinue) {
+        return { ...prev, isPlaying: false, progress: 100 };
+      }
+
+      const nextIndex = prev.currentIndex + 1;
+      if (nextIndex >= prev.queue.length) {
+        return {
+          ...prev,
+          queue: [],
+          currentIndex: 0,
+          isPlaying: false,
+          progress: 0,
+          elapsedSeconds: 0,
+          totalSeconds: 0,
+          autoContinue: true,
+        };
+      }
+
+      const nextItem = prev.queue[nextIndex];
+      return {
+        ...prev,
+        currentIndex: nextIndex,
+        isPlaying: true,
+        progress: 0,
+        elapsedSeconds: 0,
+        totalSeconds: Math.max(1, nextItem.duration ?? 0),
+        autoContinue: true,
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    setMediaPlayback((prev) => {
+      if (prev.queue.length === 0) return prev;
+      const filtered = prev.queue.filter((item) => messageById.has(item.id));
+      if (filtered.length === prev.queue.length) return prev;
+      if (filtered.length === 0) {
+        return {
+          ...prev,
+          queue: [],
+          currentIndex: 0,
+          isPlaying: false,
+          progress: 0,
+          elapsedSeconds: 0,
+          totalSeconds: 0,
+          autoContinue: true,
+        };
+      }
+      const current = prev.queue[prev.currentIndex];
+      const retainedIndex = current
+        ? filtered.findIndex((item) => item.id === current.id)
+        : -1;
+      const nextIndex =
+        retainedIndex >= 0
+          ? retainedIndex
+          : Math.min(prev.currentIndex, filtered.length - 1);
+      return {
+        ...prev,
+        queue: filtered,
+        currentIndex: nextIndex,
+      };
+    });
+  }, [messageById]);
+
+  const activeMediaMessage = activeMediaItem
+    ? messageById.get(activeMediaItem.id)
+    : undefined;
+  const activeMediaSender = activeMediaMessage
+    ? getMessageSenderName(activeMediaMessage)
+    : "Unknown";
+
   const jumpToMessage = useCallback((messageId: string) => {
     const target = document.getElementById(`msg-${messageId}`);
     if (!target) return;
@@ -637,7 +866,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   }
 
   return (
-    <div className="chat-bg relative grid h-full w-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
+    <div className="chat-bg relative flex h-full w-full min-h-0 flex-col overflow-hidden">
       {/* 
         We render a disabled/skeleton header if loading. 
         Note: The actual ChatHeader requires a participant, if we don't have it yet we can render a minimal fallback or just the structure.
@@ -683,50 +912,63 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         onPrevMatch={handlePrevMatch}
       />
 
-      {/* Pinned Message Bar */}
-      {pinnedMessage && (
-        <div className="chat-surface-2 flex items-center gap-3 px-4 py-2 border-b border-border shadow-sm animate-in slide-in-from-top-2 z-10 absolute top-[60px] w-full left-0 md:top-[60px]">
-          <div className="w-1 h-8 bg-primary rounded-full shrink-0" />
-          <div
-            className="flex flex-col flex-1 min-w-0 cursor-pointer"
-            onClick={() => {
-              const el = document.getElementById(`msg-${pinnedMessage.id}`);
-              if (el)
-                el.scrollIntoView({ behavior: "smooth", block: "center" });
-            }}
-          >
-            <span className="text-xs font-semibold text-primary">
-              Pinned Message
-            </span>
-            <span className="text-[13px] text-muted-foreground truncate">
-              {pinnedMessage.text || `[${pinnedMessage.type} Message]`}
-            </span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-            onClick={() => setPinnedMessage(null)}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </Button>
-        </div>
-      )}
+      <GlobalMediaPlayerBar
+        isVisible={!!activeMediaItem}
+        isPlaying={mediaPlayback.isPlaying}
+        progress={mediaPlayback.progress}
+        elapsedSeconds={mediaPlayback.elapsedSeconds}
+        totalSeconds={mediaPlayback.totalSeconds}
+        speed={mediaPlayback.speed}
+        mediaType={activeMediaItem?.type ?? "voice"}
+        senderLabel={activeMediaSender}
+        onTogglePlayPause={toggleActiveMediaPlayback}
+        onCycleSpeed={cycleMediaSpeed}
+        onClose={closeMediaPlayback}
+      />
 
-      <div className="relative min-h-0 overflow-hidden">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {/* Pinned Message Bar */}
+        {pinnedMessage && (
+          <div className="chat-surface-2 flex items-center gap-3 px-4 py-2 border-b border-border shadow-sm animate-in slide-in-from-top-2 z-20 absolute top-0 left-0 w-full">
+            <div className="w-1 h-8 bg-primary rounded-full shrink-0" />
+            <div
+              className="flex flex-col flex-1 min-w-0 cursor-pointer"
+              onClick={() => {
+                const el = document.getElementById(`msg-${pinnedMessage.id}`);
+                if (el)
+                  el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+            >
+              <span className="text-xs font-semibold text-primary">
+                Pinned Message
+              </span>
+              <span className="text-[13px] text-muted-foreground truncate">
+                {pinnedMessage.text || `[${pinnedMessage.type} Message]`}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+              onClick={() => setPinnedMessage(null)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </Button>
+          </div>
+        )}
         <div className="chat-wallpaper-pattern z-0" aria-hidden />
         <div
           ref={messagesContainerRef}
@@ -838,6 +1080,19 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                         return currentActiveId === msg.id ? null : currentActiveId;
                       });
                     }}
+                    isMediaActive={activeMediaItem?.id === msg.id}
+                    isMediaPlaying={
+                      activeMediaItem?.id === msg.id && mediaPlayback.isPlaying
+                    }
+                    mediaPlaybackSpeed={
+                      activeMediaItem?.id === msg.id ? mediaPlayback.speed : 1
+                    }
+                    onRequestMediaPlay={() => handleMediaItemPress(msg.id)}
+                    onToggleMediaPlayback={toggleActiveMediaPlayback}
+                    onMediaProgress={(payload) =>
+                      handleMediaProgress(msg.id, payload)
+                    }
+                    onMediaEnded={() => handleMediaEnded(msg.id)}
                   />
                 </div>
               </Fragment>

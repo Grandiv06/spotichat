@@ -1,8 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import { Play, Pause, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+type PlaybackSpeed = 1 | 1.5 | 2;
 
 interface AudioMessageProps {
   isMe: boolean;
@@ -10,6 +12,17 @@ interface AudioMessageProps {
   duration?: number;
   audioUrl?: string;
   messageId: string;
+  isActive: boolean;
+  isGlobalPlaying: boolean;
+  playbackSpeed: PlaybackSpeed;
+  onRequestPlay: () => void;
+  onTogglePlayPause: () => void;
+  onProgress: (payload: {
+    currentTime: number;
+    duration: number;
+    progress: number;
+  }) => void;
+  onEnded: () => void;
 }
 
 function hashSeed(value: string): number {
@@ -43,37 +56,85 @@ export function AudioMessage({
   duration,
   audioUrl,
   messageId,
+  isActive,
+  isGlobalPlaying,
+  playbackSpeed,
+  onRequestPlay,
+  onTogglePlayPause,
+  onProgress,
+  onEnded,
 }: AudioMessageProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [localProgress, setLocalProgress] = useState(0);
   const [metadataDuration, setMetadataDuration] = useState<number | null>(null);
   const isSending = status === "sending";
   const audioRef = useRef<HTMLAudioElement>(null);
   const totalSeconds = Math.max(1, metadataDuration ?? duration ?? 12);
-  const playedSeconds = (progress / 100) * totalSeconds;
+  const playedSeconds = (localProgress / 100) * totalSeconds;
 
   const waveformHeights = useMemo(
     () => buildWaveform(hashSeed(messageId)),
     [messageId],
   );
 
-  // Simulation logic for play/pause progress
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (isPlaying && !audioUrl) {
-      const step = 100 / (totalSeconds * 10); // How much to add every 100ms
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.playbackRate = playbackSpeed;
+  }, [playbackSpeed]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (!isActive || !isGlobalPlaying || isSending) {
+      audio.pause();
+      return;
+    }
+
+    void audio.play().catch(() => {
+      // Browser autoplay policies may block programmatic play in edge cases.
+    });
+  }, [isActive, isGlobalPlaying, isSending]);
+
+  // Simulation logic for mocked voice messages without a real URL.
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (isActive && isGlobalPlaying && !audioUrl && !isSending) {
+      const step = (100 / (totalSeconds * 10)) * playbackSpeed;
       interval = setInterval(() => {
-        setProgress((p) => {
-          if (p + step >= 100) {
-            setIsPlaying(false);
-            return 0;
+        setLocalProgress((prev) => {
+          const next = Math.min(100, prev + step);
+          const elapsed = (next / 100) * totalSeconds;
+          onProgress({
+            currentTime: elapsed,
+            duration: totalSeconds,
+            progress: next,
+          });
+          if (next >= 100) {
+            onEnded();
           }
-          return p + step;
+          return next;
         });
       }, 100);
     }
-    return () => clearInterval(interval);
-  }, [audioUrl, isPlaying, totalSeconds]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [
+    audioUrl,
+    isActive,
+    isGlobalPlaying,
+    isSending,
+    onEnded,
+    onProgress,
+    playbackSpeed,
+    totalSeconds,
+  ]);
+
+  useEffect(() => {
+    if (isActive) return;
+    if (!audioUrl) setLocalProgress(0);
+  }, [audioUrl, isActive]);
 
   useEffect(() => {
     const audioElement = audioRef.current;
@@ -89,11 +150,28 @@ export function AudioMessage({
 
   const syncAudioProgress = () => {
     const audio = audioRef.current;
-    if (!audio || !audio.duration) return;
+    if (!audio || !audio.duration || !isActive) return;
     const current = audio.currentTime;
     const total = audio.duration;
+    const progress = (current / total) * 100;
     setMetadataDuration(total);
-    setProgress((current / total) * 100);
+    setLocalProgress(progress);
+    onProgress({
+      currentTime: current,
+      duration: total,
+      progress,
+    });
+  };
+
+  const handleEnded = () => {
+    if (!isActive) return;
+    setLocalProgress(100);
+    onProgress({
+      currentTime: totalSeconds,
+      duration: totalSeconds,
+      progress: 100,
+    });
+    onEnded();
   };
 
   const togglePlayback = (event: MouseEvent<HTMLElement>) => {
@@ -101,29 +179,14 @@ export function AudioMessage({
     event.stopPropagation();
     if (isSending) return;
 
-    if (!audioUrl) {
-      setIsPlaying((prev) => !prev);
+    if (!isActive) {
+      onRequestPlay();
       return;
     }
-
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (!audio.paused) {
-      audio.pause();
-      setIsPlaying(false);
-      return;
-    }
-
-    void audio
-      .play()
-      .then(() => {
-        setIsPlaying(true);
-      })
-      .catch(() => {
-        setIsPlaying(false);
-      });
+    onTogglePlayPause();
   };
+
+  const showPlayingState = isActive && isGlobalPlaying;
 
   return (
     <div
@@ -139,12 +202,7 @@ export function AudioMessage({
           preload="metadata"
           onLoadedMetadata={syncAudioProgress}
           onTimeUpdate={syncAudioProgress}
-          onPause={() => setIsPlaying(false)}
-          onPlay={() => setIsPlaying(true)}
-          onEnded={() => {
-            setIsPlaying(false);
-            setProgress(0);
-          }}
+          onEnded={handleEnded}
         />
       ) : null}
 
@@ -164,7 +222,7 @@ export function AudioMessage({
       >
         {isSending ? (
           <Loader2 className="h-5 w-5 animate-spin" />
-        ) : isPlaying ? (
+        ) : showPlayingState ? (
           <Pause className="h-5 w-5" />
         ) : (
           <Play className="h-5 w-5 ml-1" />
@@ -179,13 +237,14 @@ export function AudioMessage({
           )}
         >
           {waveformHeights.map((height, i) => {
-            const isActive = (i / waveformHeights.length) * 100 <= progress;
+            const barProgress = isActive ? localProgress : 0;
+            const isPlayed = (i / waveformHeights.length) * 100 <= barProgress;
             return (
               <div
                 key={i}
                 className={cn(
                   "w-[3px] rounded-full transition-all duration-100",
-                  isActive
+                  isPlayed
                     ? "bg-foreground/80 dark:bg-foreground/85"
                     : "bg-foreground/28 dark:bg-foreground/30",
                 )}
