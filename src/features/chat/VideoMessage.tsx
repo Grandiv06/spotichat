@@ -136,7 +136,7 @@ export function VideoMessage({ isMe, status, videoUrl, duration }: VideoMessageP
       <div
         onClick={handleSurfaceTap}
         className={cn(
-          "relative h-full w-full overflow-hidden rounded-full border shadow-[0_10px_28px_rgba(0,0,0,0.22)]",
+          "relative h-full w-full overflow-hidden rounded-full border shadow-[0_4px_12px_rgba(0,0,0,0.14)] sm:shadow-[0_10px_28px_rgba(0,0,0,0.22)]",
           isMe
             ? "border-primary-foreground/30 bg-primary-foreground/8"
             : "border-border/70 bg-muted/20",
@@ -180,7 +180,7 @@ export function VideoMessage({ isMe, status, videoUrl, duration }: VideoMessageP
           onClick={togglePlayback}
           className={cn(
             "absolute left-1/2 top-1/2 z-10 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full",
-            "text-white backdrop-blur-md border border-white/18",
+            "text-white backdrop-blur-none sm:backdrop-blur-md border border-white/18",
             "flex items-center justify-center transition-all duration-150",
             "hover:scale-105 active:scale-95",
             showCenterControl ? "bg-black/62 opacity-100 scale-100" : "bg-black/0 opacity-0 scale-90 pointer-events-none",
@@ -196,7 +196,7 @@ export function VideoMessage({ isMe, status, videoUrl, duration }: VideoMessageP
           )}
         </button>
 
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/58 px-2 py-0.5 text-[10px] font-medium tracking-wide text-white/95 backdrop-blur-sm">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/58 px-2 py-0.5 text-[10px] font-medium tracking-wide text-white/95 backdrop-blur-none sm:backdrop-blur-sm">
           {formatDuration(isPlaying ? elapsedSeconds : (progress / 100) * totalSeconds || totalSeconds)}
         </div>
 

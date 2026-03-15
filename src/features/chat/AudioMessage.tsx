@@ -129,7 +129,7 @@ export function AudioMessage({
     <div
       className={cn(
         "flex items-center gap-3 w-[12.75rem] max-w-[66vw] sm:w-56 ",
-        isMe ? "text-primary-foreground" : "text-card-foreground",
+        isMe ? "text-foreground" : "text-card-foreground",
       )}
     >
       {audioUrl ? (
@@ -154,10 +154,10 @@ export function AudioMessage({
         size="icon"
         disabled={isSending}
         className={cn(
-          "h-9 w-9 shrink-0 rounded-full",
+          "h-9 w-9 shrink-0 rounded-full border shadow-sm",
           isMe
-            ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90 disabled:opacity-70"
-            : "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-70",
+            ? "bg-background/95 text-primary border-primary/30 hover:bg-background disabled:opacity-70"
+            : "bg-primary/15 text-primary border-primary/25 hover:bg-primary/22 disabled:opacity-70",
         )}
         onPointerDown={handleControlPointerDown}
         onClick={togglePlayback}
@@ -175,7 +175,7 @@ export function AudioMessage({
         <div
           className={cn(
             "flex items-end h-5 w-full gap-[2px] transition-opacity",
-            isSending ? "opacity-30" : "opacity-80",
+            isSending ? "opacity-40" : "opacity-95",
           )}
         >
           {waveformHeights.map((height, i) => {
@@ -185,7 +185,9 @@ export function AudioMessage({
                 key={i}
                 className={cn(
                   "w-[3px] rounded-full transition-all duration-100",
-                  isActive ? "bg-current opacity-100" : "bg-current opacity-30",
+                  isActive
+                    ? "bg-foreground/80 dark:bg-foreground/85"
+                    : "bg-foreground/28 dark:bg-foreground/30",
                 )}
                 style={{ height: `${height}%` }}
               />
@@ -193,7 +195,7 @@ export function AudioMessage({
           })}
         </div>
         <div className="flex justify-start items-center mt-0.5">
-          <span className="text-[11px] tabular-nums opacity-75">
+          <span className="text-[11px] tabular-nums text-muted-foreground">
             {formatDuration(playedSeconds)} / {formatDuration(totalSeconds)}
           </span>
         </div>
