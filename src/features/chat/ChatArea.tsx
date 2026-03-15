@@ -628,8 +628,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
   if (!chat && !isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-accent/5">
-        <p className="text-muted-foreground bg-background/60 px-4 py-2 rounded-full text-sm">
+      <div className="chat-bg flex-1 flex items-center justify-center">
+        <p className="text-muted-foreground chat-surface-2 px-4 py-2 rounded-full text-sm border border-border/45">
           Select a chat to start messaging
         </p>
       </div>
@@ -637,7 +637,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   }
 
   return (
-    <div className="relative grid h-full w-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-accent/5">
+    <div className="chat-bg relative grid h-full w-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
       {/* 
         We render a disabled/skeleton header if loading. 
         Note: The actual ChatHeader requires a participant, if we don't have it yet we can render a minimal fallback or just the structure.
@@ -661,7 +661,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           }}
         />
       ) : (
-        <div className="h-16 border-b bg-card flex items-center px-4 animate-pulse">
+        <div className="chat-surface-1 h-16 border-b flex items-center px-4 animate-pulse">
           <div className="h-10 w-10 bg-muted rounded-full mr-3" />
           <div className="flex flex-col gap-2">
             <div className="h-3 w-24 bg-muted rounded" />
@@ -685,7 +685,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
       {/* Pinned Message Bar */}
       {pinnedMessage && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-background border-b border-border shadow-sm animate-in slide-in-from-top-2 z-10 absolute top-[60px] w-full left-0 md:top-[60px]">
+        <div className="chat-surface-2 flex items-center gap-3 px-4 py-2 border-b border-border shadow-sm animate-in slide-in-from-top-2 z-10 absolute top-[60px] w-full left-0 md:top-[60px]">
           <div className="w-1 h-8 bg-primary rounded-full shrink-0" />
           <div
             className="flex flex-col flex-1 min-w-0 cursor-pointer"
@@ -741,7 +741,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           <div className="flex flex-col gap-2 min-h-full justify-end pb-2">
           {/* Simple date badge placeholder */}
           <div className="flex justify-center my-4 sticky top-0 z-10">
-            <span className="bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-muted-foreground shadow-sm">
+            <span className="chat-surface-2 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-muted-foreground shadow-sm border border-border/45">
               Today
             </span>
           </div>
@@ -763,8 +763,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                         className={cn(
                           "px-4 py-2 rounded-2xl shadow-sm",
                           isMeSkeleton
-                            ? "bg-primary/40 rounded-br-sm"
-                            : "bg-card/60 border border-border/50 rounded-bl-sm",
+                            ? "message-bubble-out rounded-br-sm"
+                            : "message-bubble-in rounded-bl-sm",
                         )}
                       >
                         <div className="h-3 w-16 bg-foreground/20 rounded-full mb-2" />
@@ -775,7 +775,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
                         className={cn(
                           "flex items-center gap-1 mt-1",
                           isMeSkeleton
-                            ? "justify-end text-primary/60"
+                            ? "justify-end text-muted-foreground"
                             : "justify-end text-muted-foreground/70",
                         )}
                       >
@@ -852,9 +852,9 @@ export function ChatArea({ chatId }: ChatAreaProps) {
               size="icon"
               className={cn(
                 "relative h-12 w-12 rounded-full transition-all duration-200",
-                "bg-background/80 dark:bg-background/70 backdrop-blur-xl border border-border/50",
+                "chat-surface-2 backdrop-blur-xl border border-border/55",
                 "shadow-[0_4px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.35)]",
-                "hover:bg-background/90 hover:scale-105 active:scale-95",
+                "hover:bg-card/90 hover:scale-105 active:scale-95",
                 "text-foreground hover:text-primary",
                 "animate-in zoom-in-95 fade-in duration-200",
               )}
@@ -883,7 +883,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
       <div className="flex flex-col">
         {isBlockedByMe && chat && (
-          <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/50 px-4 py-2">
+          <div className="chat-surface-1 flex items-center justify-between gap-3 border-t border-border px-4 py-2">
             <span className="text-sm text-muted-foreground">
               You blocked this user. Unblock to send messages.
             </span>

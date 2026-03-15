@@ -233,10 +233,10 @@ export function MessageInput({
   };
 
   return (
-    <div className="flex flex-col bg-background border-t border-border transition-all w-full relative">
+    <div className="chat-surface-1 flex flex-col border-t border-border transition-all w-full relative">
       {/* Reply Preview Banner */}
       {replyingToMessage && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-accent/20 border-b border-border/50 animate-in slide-in-from-bottom-2">
+        <div className="chat-surface-2 flex items-center gap-3 px-4 py-2 border-b border-border/50 animate-in slide-in-from-bottom-2">
           <div className="w-1 h-8 bg-primary rounded-full shrink-0" />
           <div className="flex flex-col flex-1 min-w-0">
             <span className="text-xs font-semibold text-primary truncate">
@@ -254,14 +254,14 @@ export function MessageInput({
       
       <div className="relative p-3 flex items-end gap-2 w-full">
         {currentMediaError && (
-          <div className="absolute left-4 bottom-full mb-2 max-w-[80%] text-xs text-destructive bg-background/95 border border-destructive/40 rounded-2xl px-3 py-2 shadow-sm">
+          <div className="absolute left-4 bottom-full mb-2 max-w-[80%] text-xs text-destructive chat-surface-2 border border-destructive/40 rounded-2xl px-3 py-2 shadow-sm">
             {currentMediaError}
           </div>
         )}
         {/* Slide to Lock UI Overlay */}
         {recordingState === 'holding' && (
         <div className="absolute right-4 bottom-20 flex flex-col items-center animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <div className="bg-background border rounded-full p-2 shadow-sm mb-2 opacity-80">
+          <div className="chat-surface-2 border rounded-full p-2 shadow-sm mb-2 opacity-85">
             <Lock className="h-5 w-5 text-muted-foreground mb-1" />
             <ArrowUp className="h-5 w-5 text-muted-foreground animate-bounce" />
           </div>
@@ -280,7 +280,7 @@ export function MessageInput({
             <Paperclip className="h-5 w-5" />
           </Button>
           
-          <div className="flex-1 bg-accent/50 rounded-2xl min-h-[44px] flex items-center px-4 py-2 border border-transparent focus-within:border-ring transition-colors">
+          <div className="flex-1 bg-card/70 rounded-2xl min-h-[44px] flex items-center px-4 py-2 border border-border/45 focus-within:border-ring transition-colors">
               <textarea
                 ref={inputRef}
                 value={text}
@@ -306,7 +306,7 @@ export function MessageInput({
           </div>
         </>
       ) : (
-        <div className="flex-1 bg-accent/30 rounded-2xl min-h-[44px] flex items-center px-2 py-1 border border-border/50 overflow-visible relative">
+        <div className="flex-1 chat-surface-2 rounded-2xl min-h-[44px] flex items-center px-2 py-1 border border-border/50 overflow-visible relative">
           {mediaType === 'voice' ? (
             <VoiceRecorderUI onCancel={cancelRecording} onSend={handleSendMedia} isLocked={recordingState === 'locked'} stream={audio.stream} />
           ) : (

@@ -51,7 +51,7 @@ export function InChatSearch({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-16 left-0 right-0 z-20 bg-background border-b border-border shadow-sm px-2 py-2 flex items-center gap-2 animate-in slide-in-from-top-2 duration-200">
+    <div className="chat-surface-2 absolute top-16 left-0 right-0 z-20 border-b border-border shadow-sm px-2 py-2 flex items-center gap-2 animate-in slide-in-from-top-2 duration-200">
       <div className="flex-1 relative flex items-center">
         <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
         <Input 
@@ -60,7 +60,7 @@ export function InChatSearch({
           onChange={handleQueryChange}
           onKeyDown={handleKeyDown}
           placeholder="Search in chat..."
-          className="pl-9 pr-24 h-9 bg-accent/50 border-transparent focus-visible:ring-0 focus-visible:outline-none focus-visible:bg-background focus-visible:border-ring rounded-full"
+          className="pl-9 pr-24 h-9 bg-card/70 border border-border/55 focus-visible:ring-0 focus-visible:outline-none focus-visible:bg-card focus-visible:border-ring rounded-full"
         />
         {matchCount > 0 && query && (
           <div className="absolute right-3 text-xs text-muted-foreground tabular-nums">

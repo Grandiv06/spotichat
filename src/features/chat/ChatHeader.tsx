@@ -72,7 +72,7 @@ export function ChatHeader({
 
   return (
     <>
-      <div className="chat-header h-16 border-b border-border bg-background px-2 sm:px-4 flex items-center justify-between">
+      <div className="chat-header chat-surface-1 h-16 border-b border-border px-2 sm:px-4 flex items-center justify-between">
         <div
           className="flex items-center gap-2  sm:gap-2 cursor-pointer"
           onClick={() => setProfileOpen(true)}
@@ -97,7 +97,7 @@ export function ChatHeader({
             </Avatar>
             {showOnline && (
               <span
-                className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background bg-green-500"
+                className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background bg-primary"
                 title="Online"
               />
             )}
@@ -107,7 +107,7 @@ export function ChatHeader({
             <span
               className={
                 showOnline || activity
-                  ? "text-xs text-green-600 dark:text-green-400"
+                  ? "text-xs text-primary"
                   : "text-xs text-muted-foreground"
               }
             >

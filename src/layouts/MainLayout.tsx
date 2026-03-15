@@ -346,7 +346,7 @@ export function MainLayout() {
         className={`w-full md:w-80 lg:w-96 flex-shrink-0 border-r border-border flex flex-col bg-sidebar text-sidebar-foreground z-20 ${selectedChatId ? "hidden md:flex" : "flex"}`}
       >
         {/* Sidebar Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border gap-2 relative overflow-hidden">
+        <div className="chat-surface-2 h-16 flex items-center justify-between px-4 border-b border-sidebar-border gap-2 relative overflow-hidden">
           {!isSearchExpanded ? (
             // Collapsed State: Menu + Branding + Search Icon
             <div className="flex items-center justify-between w-full animate-in fade-in duration-200">
@@ -390,7 +390,7 @@ export function MainLayout() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full bg-accent/30 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="rounded-full bg-accent/45 text-muted-foreground hover:bg-accent hover:text-foreground"
                   onClick={() => setIsSearchExpanded(true)}
                 >
                   <Search className="h-4 w-4" />
@@ -415,7 +415,7 @@ export function MainLayout() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 <Input
                   placeholder="Search"
-                  className="pl-9 pr-4 bg-accent/60 border-none h-10 w-full rounded-2xl focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:bg-background transition-all pointer-events-none"
+                  className="pl-9 pr-4 bg-card/75 border border-border/55 h-10 w-full rounded-2xl focus-visible:ring-1 focus-visible:ring-primary/50 focus-visible:bg-card transition-all pointer-events-none"
                   readOnly
                   autoFocus
                 />
@@ -449,7 +449,7 @@ export function MainLayout() {
             */}
             {/* Stories row */}
             <div
-              className="px-2 pt-2 bg-sidebar text-sidebar-foreground"
+              className="chat-surface-1 px-2 pt-2 bg-sidebar text-sidebar-foreground"
               style={{
                 height: storiesCollapsed ? 0 : STORIES_HEIGHT,
                 opacity: storiesCollapsed ? 0 : 1,
@@ -473,7 +473,7 @@ export function MainLayout() {
             <DropdownMenuTrigger asChild>
               <Button
                 size="icon"
-                className="h-14 w-14 rounded-full shadow-lg cursor-pointer hover:bg-primary/80"
+                className="h-14 w-14 rounded-full shadow-lg cursor-pointer bg-primary/95 hover:bg-primary"
               >
                 <Plus className="h-6 w-6" />
               </Button>
@@ -510,7 +510,7 @@ export function MainLayout() {
 
       {/* Main Chat Area */}
       <div
-        className={`absolute inset-x-0 z-30 flex min-w-0 flex-col bg-background transition-transform duration-300 ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none md:static md:inset-auto md:z-10 md:w-auto md:min-h-0 md:flex-1 md:translate-x-0 ${
+        className={`chat-bg absolute inset-x-0 z-30 flex min-w-0 flex-col transition-transform duration-300 ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none md:static md:inset-auto md:z-10 md:w-auto md:min-h-0 md:flex-1 md:translate-x-0 ${
           selectedChatId
             ? "pointer-events-auto"
             : "translate-x-full pointer-events-none md:pointer-events-auto"

@@ -214,8 +214,8 @@ function MessageBubbleComponent({
                 isVideoMessage
                   ? "bg-transparent border-0 shadow-none px-0 py-0"
                   : isMe
-                    ? "bg-primary text-primary-foreground rounded-br-sm"
-                    : "bg-card border border-border text-card-foreground rounded-bl-sm",
+                    ? "message-bubble-out rounded-br-sm"
+                    : "message-bubble-in rounded-bl-sm",
                 isMenuOpen && "ring-2 ring-primary/35 ring-offset-2 ring-offset-background",
                 isReplyJumpHighlighted && "message-jump-highlight",
                 isHighlightedMatch && "ring-2 ring-ring ring-offset-2 ring-offset-background scale-[1.02]"
@@ -281,7 +281,7 @@ function MessageBubbleComponent({
               isVoiceMessage || isVideoMessage
                 ? "text-muted-foreground/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]"
                 : isMe
-                  ? "text-primary-foreground/70"
+                  ? "text-muted-foreground"
                   : "text-muted-foreground",
             )}
           >
@@ -295,7 +295,7 @@ function MessageBubbleComponent({
                   "ml-0.5 mt-0.5 inline-flex h-4 w-4 items-center justify-center relative overflow-visible",
                   "transition-colors duration-300 ease-out",
                   status === "seen"
-                    ? "text-blue-600 dark:text-blue-400"
+                    ? "text-primary"
                     : "text-current",
                 )}
               >

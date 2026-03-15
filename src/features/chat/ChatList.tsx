@@ -63,8 +63,8 @@ export function ChatList() {
             className={cn(
               "p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-colors",
               selectedChatId === chat.id
-                ? "bg-primary text-primary-foreground select-none"
-                : "hover:bg-accent/50",
+                ? "bg-primary/18 ring-1 ring-primary/35 text-foreground select-none"
+                : "hover:bg-accent/55",
             )}
           >
             <div className="relative flex-shrink-0">
@@ -94,7 +94,7 @@ export function ChatList() {
                     className={cn(
                       "text-xs whitespace-nowrap shrink-0",
                       selectedChatId === chat.id
-                        ? "text-primary-foreground/80"
+                        ? "text-foreground/75"
                         : "text-muted-foreground",
                     )}
                   >
@@ -111,14 +111,14 @@ export function ChatList() {
                   className={cn(
                     "text-sm truncate",
                     selectedChatId === chat.id
-                      ? "text-primary-foreground/90"
+                      ? "text-foreground/85"
                       : "text-muted-foreground",
                   )}
                 >
                   {lastMessagePreview(chat.lastMessage)}
                 </p>
                 {unread > 0 && selectedChatId !== chat.id && (
-                  <span className="h-5 min-w-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-medium shrink-0">
+                  <span className="h-5 min-w-5 flex items-center justify-center rounded-full bg-primary/90 text-primary-foreground text-[10px] font-medium shrink-0">
                     {unread > 99 ? "99+" : unread}
                   </span>
                 )}
