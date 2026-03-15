@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { MouseEvent, PointerEvent } from 'react';
-import { Play, Pause, Loader2, VideoOff } from 'lucide-react';
+import { Play, Pause, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VideoMessageProps {
@@ -12,11 +12,14 @@ interface VideoMessageProps {
 
 export function VideoMessage({ isMe, status, videoUrl, duration }: VideoMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showCenterControl, setShowCenterControl] = useState(true);
   const [progress, setProgress] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [metadataDuration, setMetadataDuration] = useState<number | null>(null);
   const isSending = status === 'sending';
   const videoRef = useRef<HTMLVideoElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const totalSeconds = Math.max(1, metadataDuration ?? duration ?? 12);
 
   const stopEvent = (
@@ -43,25 +46,38 @@ export function VideoMessage({ isMe, status, videoUrl, duration }: VideoMessageP
     event.preventDefault();
     event.stopPropagation();
     if (isSending) return;
+    setIsExpanded(true);
 
     if (isPlaying) {
       videoRef.current?.pause();
       setIsPlaying(false);
+      setShowCenterControl(true);
       return;
     }
 
     if (videoRef.current) {
       void videoRef.current.play().then(() => {
         setIsPlaying(true);
+        setShowCenterControl(false);
       }).catch(() => {
         setIsPlaying(false);
+        setShowCenterControl(true);
       });
       return;
     }
 
     if (!videoUrl) {
       setIsPlaying(true);
+      setShowCenterControl(false);
     }
+  };
+
+  const handleSurfaceTap = (event: MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    if (isSending || !isPlaying) return;
+    videoRef.current?.pause();
+    setIsPlaying(false);
+    setShowCenterControl(true);
   };
 
   const formatDuration = (seconds: number) => {
@@ -91,14 +107,34 @@ export function VideoMessage({ isMe, status, videoUrl, duration }: VideoMessageP
     return () => clearInterval(interval);
   }, [isPlaying, videoUrl, totalSeconds]);
 
+  useEffect(() => {
+    if (!isExpanded) return;
+    const handleOutsidePointer = (event: Event) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (rootRef.current?.contains(target)) return;
+      setIsExpanded(false);
+    };
+
+    document.addEventListener('pointerdown', handleOutsidePointer, true);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePointer, true);
+    };
+  }, [isExpanded]);
+
   return (
     <div
+      ref={rootRef}
       data-media-control="true"
-      className="relative isolate h-40 w-40 sm:h-44 sm:w-44 shrink-0"
+      className={cn(
+        "relative isolate shrink-0 transition-[width,height,transform] duration-200 ease-out",
+        isExpanded ? "h-52 w-52 sm:h-56 sm:w-56" : "h-40 w-40 sm:h-44 sm:w-44",
+      )}
       onPointerDown={stopEvent}
       onClick={stopEvent}
     >
       <div
+        onClick={handleSurfaceTap}
         className={cn(
           "relative h-full w-full overflow-hidden rounded-full border shadow-[0_10px_28px_rgba(0,0,0,0.22)]",
           isMe
@@ -117,18 +153,23 @@ export function VideoMessage({ isMe, status, videoUrl, duration }: VideoMessageP
             playsInline
             onLoadedMetadata={syncVideoProgress}
             onTimeUpdate={syncVideoProgress}
-            onPause={() => setIsPlaying(false)}
-            onPlay={() => setIsPlaying(true)}
+            onPause={() => {
+              setIsPlaying(false);
+              setShowCenterControl(true);
+            }}
+            onPlay={() => {
+              setIsPlaying(true);
+              setShowCenterControl(false);
+            }}
             onEnded={() => {
               setIsPlaying(false);
               setProgress(0);
               setElapsedSeconds(0);
+              setShowCenterControl(true);
             }}
           />
         ) : (
-          <div className="h-full w-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black flex items-center justify-center">
-            <VideoOff className="h-7 w-7 text-white/55" />
-          </div>
+          <div className="h-full w-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
         )}
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/15 via-black/5 to-black/35" />
@@ -139,9 +180,10 @@ export function VideoMessage({ isMe, status, videoUrl, duration }: VideoMessageP
           onClick={togglePlayback}
           className={cn(
             "absolute left-1/2 top-1/2 z-10 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full",
-            "bg-black/55 text-white backdrop-blur-md border border-white/18",
+            "text-white backdrop-blur-md border border-white/18",
             "flex items-center justify-center transition-all duration-150",
             "hover:scale-105 active:scale-95",
+            showCenterControl ? "bg-black/62 opacity-100 scale-100" : "bg-black/0 opacity-0 scale-90 pointer-events-none",
           )}
           aria-label={isPlaying ? 'Pause video' : 'Play video'}
         >

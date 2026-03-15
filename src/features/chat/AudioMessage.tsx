@@ -46,11 +46,11 @@ export function AudioMessage({
 }: AudioMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [metadataDuration, setMetadataDuration] = useState<number | null>(null);
   const isSending = status === "sending";
   const audioRef = useRef<HTMLAudioElement>(null);
   const totalSeconds = Math.max(1, metadataDuration ?? duration ?? 12);
+  const playedSeconds = (progress / 100) * totalSeconds;
 
   const waveformHeights = useMemo(
     () => buildWaveform(hashSeed(messageId)),
@@ -66,10 +66,8 @@ export function AudioMessage({
         setProgress((p) => {
           if (p + step >= 100) {
             setIsPlaying(false);
-            setElapsedSeconds(0);
             return 0;
           }
-          setElapsedSeconds(((p + step) / 100) * totalSeconds);
           return p + step;
         });
       }, 100);
@@ -94,7 +92,6 @@ export function AudioMessage({
     if (!audio || !audio.duration) return;
     const current = audio.currentTime;
     const total = audio.duration;
-    setElapsedSeconds(current);
     setMetadataDuration(total);
     setProgress((current / total) * 100);
   };
@@ -147,7 +144,6 @@ export function AudioMessage({
           onEnded={() => {
             setIsPlaying(false);
             setProgress(0);
-            setElapsedSeconds(0);
           }}
         />
       ) : null}
@@ -178,7 +174,7 @@ export function AudioMessage({
       <div className="flex flex-col flex-1 gap-1 min-w-0 overflow-hidden">
         <div
           className={cn(
-            "flex items-end h-6 w-full gap-[2px] transition-opacity",
+            "flex items-end h-5 w-full gap-[2px] transition-opacity",
             isSending ? "opacity-30" : "opacity-80",
           )}
         >
@@ -196,14 +192,9 @@ export function AudioMessage({
             );
           })}
         </div>
-        <div className="flex justify-between items-center mt-0.5">
-          <span className="text-[11px] tabular-nums font-medium opacity-80">
-            {formatDuration(
-              isPlaying ? elapsedSeconds : (progress / 100) * totalSeconds,
-            )}
-          </span>
-          <span className="text-[11px] tabular-nums opacity-70">
-            {formatDuration(totalSeconds)}
+        <div className="flex justify-start items-center mt-0.5">
+          <span className="text-[11px] tabular-nums opacity-75">
+            {formatDuration(playedSeconds)} / {formatDuration(totalSeconds)}
           </span>
         </div>
       </div>

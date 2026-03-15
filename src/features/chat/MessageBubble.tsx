@@ -39,6 +39,14 @@ function escapeRegExp(string: string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
 
+function formatMediaDuration(seconds?: number) {
+  if (!seconds || Number.isNaN(seconds)) return null;
+  const safe = Math.max(0, Math.floor(seconds));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 function isMediaControlTarget(target: EventTarget | null): target is HTMLElement {
   return (
     target instanceof HTMLElement &&
@@ -67,7 +75,11 @@ function MessageBubbleComponent({
   const storeStatus = useMessageStatusStore((s) => s.getStatus(message.id));
   const status = storeStatus ?? message.status;
   const isMe = user?.id === message.senderId;
+  const isVoiceMessage = message.type === 'voice';
   const isVideoMessage = message.type === 'video';
+  const mediaDuration = isVideoMessage
+    ? formatMediaDuration(message.duration)
+    : null;
   const [translateX, setTranslateX] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -263,14 +275,19 @@ function MessageBubbleComponent({
           <div
             className={cn(
               "message-ui-surface flex items-center justify-end gap-1",
-              isVideoMessage ? "mt-1 mb-0 text-[11px] leading-none pr-0.5" : "mt-1 -mb-1",
-              isVideoMessage
+              isVoiceMessage || isVideoMessage
+                ? "mt-1 mb-0 text-[11px] leading-none pr-0.5"
+                : "mt-1 -mb-1",
+              isVoiceMessage || isVideoMessage
                 ? "text-muted-foreground/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]"
                 : isMe
                   ? "text-primary-foreground/70"
                   : "text-muted-foreground",
             )}
           >
+            {mediaDuration && (
+              <span className="text-[11px] leading-none tabular-nums">{mediaDuration}</span>
+            )}
             <span className="text-[11px] leading-none">{time}</span>
             {isMe && (
               <span
